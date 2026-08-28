@@ -18,6 +18,21 @@ pub struct Request {
     pub chat: String,
     #[serde(default)]
     pub sender: String,
+    /// The bot's active command prefix (e.g. "." or "/").
+    #[serde(default)]
+    pub prefix: String,
+    /// The configured bot display name.
+    #[serde(default)]
+    pub bot_name: String,
+    /// The WhatsApp push name (display name) of the sender.
+    #[serde(default)]
+    pub push_name: String,
+    /// Whether the command was triggered in a group chat.
+    #[serde(default)]
+    pub is_group: bool,
+    /// Whether the sender is a sudo user or bot owner.
+    #[serde(default)]
+    pub is_sudo: bool,
 }
 
 impl Request {
@@ -61,6 +76,11 @@ impl Request {
             raw_args,
             chat: String::new(),
             sender: String::new(),
+            prefix: String::from("."),
+            bot_name: String::from("WhatsRook"),
+            push_name: String::new(),
+            is_group: false,
+            is_sudo: false,
         }
     }
 
@@ -72,6 +92,43 @@ impl Request {
         } else {
             self.args.join(" ").trim().to_string()
         }
+    }
+
+    /// Returns the effective prefix string. Falls back to "." if empty.
+    pub fn prefix(&self) -> &str {
+        if self.prefix.is_empty() {
+            "."
+        } else {
+            &self.prefix
+        }
+    }
+
+    /// Returns the bot name. Falls back to "WhatsRook" if empty.
+    pub fn bot_name(&self) -> &str {
+        if self.bot_name.is_empty() {
+            "WhatsRook"
+        } else {
+            &self.bot_name
+        }
+    }
+
+    /// Returns the push name (sender display name). Falls back to "User" if empty.
+    pub fn push_name(&self) -> &str {
+        if self.push_name.is_empty() {
+            "User"
+        } else {
+            &self.push_name
+        }
+    }
+
+    /// Returns true if the command originated from a group chat.
+    pub fn is_group(&self) -> bool {
+        self.is_group
+    }
+
+    /// Returns true if the sender is a sudo user or bot owner.
+    pub fn is_sudo(&self) -> bool {
+        self.is_sudo
     }
 }
 

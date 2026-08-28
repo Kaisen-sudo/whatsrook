@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use whatsrook_sdk::{create_http_client, respond, respond_err};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Default)]
 struct WatcherGuruResponse {
     #[serde(default)]
     bitcoin_price: BitcoinPriceInfo,
@@ -15,6 +15,8 @@ struct WatcherGuruResponse {
 struct BitcoinPriceInfo {
     #[serde(default)]
     price_usd: f64,
+    #[serde(default)]
+    price_change_24h: f64,
 }
 
 #[derive(Deserialize, Default)]
@@ -66,10 +68,21 @@ fn format_usd_price(price: f64) -> String {
     )
 }
 
-fn main() {
-    let client = create_http_client(8);
+fn format_change(change: f64) -> String {
+    if change > 0.0 {
+        format!("📈 +{:.2}%", change)
+    } else if change < 0.0 {
+        format!("📉 {:.2}%", change)
+    } else {
+        "➡️ 0.00%".to_string()
+    }
+}
 
-    // Try Watcher Guru API
+fn main() {
+    let req = whatsrook_sdk::Request::load();
+    let client = create_http_client(10);
+
+    // Try Watcher Guru API (price + halving)
     if let Ok(resp) = client
         .get("https://api.watcher.guru/bitcoinhalving/predictions")
         .send()
@@ -77,22 +90,74 @@ fn main() {
         if resp.status().is_success() {
             if let Ok(data) = resp.json::<WatcherGuruResponse>() {
                 if data.bitcoin_price.price_usd > 0.0 {
+                    let price_str = format_usd_price(data.bitcoin_price.price_usd);
+                    let change_str = if data.bitcoin_price.price_change_24h != 0.0 {
+                        format!(" ({})", format_change(data.bitcoin_price.price_change_24h))
+                    } else {
+                        String::new()
+                    };
+
                     let mut out = format!(
-                        "*Bitcoin Price:* {}",
-                        format_usd_price(data.bitcoin_price.price_usd)
+                        "₿ *Bitcoin (BTC)*\n\n*Price:* {}{}",
+                        price_str, change_str
                     );
+
                     if data.current.block_number > 0 {
                         out.push_str(&format!(
                             "\n*Current Block:* {}",
                             format_number_with_commas(data.current.block_number)
                         ));
                     }
+
                     if data.target.block_number > 0 {
                         out.push_str(&format!(
-                            "\n*Target Block:* {}",
+                            "\n*Halving Block:* {}",
                             format_number_with_commas(data.target.block_number)
                         ));
+
+                        if data.current.block_number > 0 {
+                            let remaining = data.target.block_number - data.current.block_number;
+                            if remaining > 0 {
+                                // Estimate time: ~10 minutes per block
+                                let minutes = remaining * 10;
+                                let days = minutes / (60 * 24);
+                                let hours = (minutes % (60 * 24)) / 60;
+
+                                out.push_str(&format!(
+                                    "\n*Blocks Remaining:* {}",
+                                    format_number_with_commas(remaining)
+                                ));
+
+                                if days > 0 {
+                                    out.push_str(&format!(
+                                        "\n*Est. Time:* ~{} days {} hrs",
+                                        format_number_with_commas(days),
+                                        hours
+                                    ));
+                                } else if hours > 0 {
+                                    let mins = minutes % 60;
+                                    out.push_str(&format!(
+                                        "\n*Est. Time:* ~{} hrs {} min",
+                                        hours, mins
+                                    ));
+                                } else {
+                                    out.push_str(&format!(
+                                        "\n*Est. Time:* ~{} min",
+                                        minutes % 60
+                                    ));
+                                }
+                            } else {
+                                out.push_str("\n*Halving:* ✅ Completed");
+                            }
+                        }
                     }
+
+                    let prefix = req.prefix();
+                    out.push_str(&format!(
+                        "\n\n_Powered by Watcher Guru · {}markets for more_",
+                        prefix
+                    ));
+
                     respond(out);
                     return;
                 }
@@ -108,7 +173,12 @@ fn main() {
         if resp.status().is_success() {
             if let Ok(data) = resp.json::<BinancePriceResponse>() {
                 if let Ok(price) = data.price.parse::<f64>() {
-                    respond(format!("*Bitcoin Price:* {}", format_usd_price(price)));
+                    let prefix = req.prefix();
+                    respond(format!(
+                        "₿ *Bitcoin (BTC)*\n\n*Price:* {}\n\n_Powered by Binance · {}markets for more_",
+                        format_usd_price(price),
+                        prefix
+                    ));
                     return;
                 }
             }
