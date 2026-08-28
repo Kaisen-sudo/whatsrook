@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::io::{self, BufRead, IsTerminal, Read, Write};
+use std::io::{self, BufRead, IsTerminal, Write};
 use std::time::Duration;
 
 pub use reqwest;
@@ -45,12 +45,13 @@ pub struct Request {
 }
 
 impl Request {
-    /// Loads the plugin request from stdin (JSON line), then falls back to CLI args.
+    /// Loads the plugin request from stdin (first line as JSON), falling back to CLI args.
     pub fn load() -> Self {
         if !io::stdin().is_terminal() {
-            let mut buffer = String::new();
-            if io::stdin().read_to_string(&mut buffer).is_ok() && !buffer.trim().is_empty() {
-                if let Ok(req) = serde_json::from_str::<Request>(buffer.trim()) {
+            let stdin = io::stdin();
+            let mut line = String::new();
+            if stdin.lock().read_line(&mut line).is_ok() && !line.trim().is_empty() {
+                if let Ok(req) = serde_json::from_str::<Request>(line.trim()) {
                     if !req.command.is_empty()
                         || !req.args.is_empty()
                         || !req.raw_args.is_empty()
@@ -90,20 +91,9 @@ impl Request {
         }
     }
 
-    /// Loads the plugin request from stdin reading only the FIRST LINE (for streaming protocol).
-    /// WhatsRook sends one JSON line then awaits action frames.
+    /// Loads the plugin request from stdin reading the first line (alias for load).
     pub fn load_streaming() -> Self {
-        if !io::stdin().is_terminal() {
-            let stdin = io::stdin();
-            let mut line = String::new();
-            if stdin.lock().read_line(&mut line).is_ok() && !line.trim().is_empty() {
-                if let Ok(req) = serde_json::from_str::<Request>(line.trim()) {
-                    return req;
-                }
-            }
-        }
-        // Fallback to CLI
-        Request::load()
+        Self::load()
     }
 
     /// Helper to get trimmed raw argument string or fallback to joining args.

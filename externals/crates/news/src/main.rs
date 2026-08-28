@@ -33,7 +33,11 @@ fn main() {
     let query = req.query();
 
     if query.is_empty() {
-        respond("*AP News Country Headlines*\n\nUsage:\n• news <country> (e.g. news nigeria, news japan, news usa, news uk)");
+        let p = req.prefix();
+        respond(format!(
+            "*AP News Country Headlines*\n\nUsage:\n• {}news <country> (e.g. {}news nigeria, {}news japan, {}news usa, {}news uk)",
+            p, p, p, p, p
+        ));
         return;
     }
 
