@@ -56,8 +56,8 @@ fn main() {
                     }
 
                     let first = &data.list[0];
-                    let clean_def = first.definition.replace('[', "").replace(']', "");
-                    let clean_example = first.example.replace('[', "").replace(']', "");
+                    let clean_def = first.definition.replace(['[', ']'], "");
+                    let clean_example = first.example.replace(['[', ']'], "");
 
                     let mut out = format!(
                         "*Urban Dictionary: {}*\n\n*Definition:*\n{}",
