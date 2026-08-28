@@ -97,10 +97,8 @@ fn main() {
                         String::new()
                     };
 
-                    let mut out = format!(
-                        "₿ *Bitcoin (BTC)*\n\n*Price:* {}{}",
-                        price_str, change_str
-                    );
+                    let mut out =
+                        format!("₿ *Bitcoin (BTC)*\n\n*Price:* {}{}", price_str, change_str);
 
                     if data.current.block_number > 0 {
                         out.push_str(&format!(
@@ -141,10 +139,7 @@ fn main() {
                                         hours, mins
                                     ));
                                 } else {
-                                    out.push_str(&format!(
-                                        "\n*Est. Time:* ~{} min",
-                                        minutes % 60
-                                    ));
+                                    out.push_str(&format!("\n*Est. Time:* ~{} min", minutes % 60));
                                 }
                             } else {
                                 out.push_str("\n*Halving:* ✅ Completed");
