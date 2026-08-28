@@ -8,7 +8,18 @@ pub use reqwest::blocking::Client as HttpClient;
 pub const DEFAULT_USER_AGENT: &str =
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
-/// Incoming request payload sent by WhatsRook via stdin.
+/// Quoted message context payload.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct QuotedMessage {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub sender: String,
+    #[serde(default)]
+    pub text: String,
+}
+
+/// Incoming request payload sent by WhatsRook via standard input.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Request {
     #[serde(default)]
@@ -36,12 +47,24 @@ pub struct Request {
     /// Whether the sender is a sudo user or bot owner.
     #[serde(default)]
     pub is_sudo: bool,
+    /// Whether the sender is the primary bot owner.
+    #[serde(default)]
+    pub is_owner: bool,
+    /// Whether the sender is a group admin.
+    #[serde(default)]
+    pub is_admin: bool,
     /// Whether a live session is already active for this plugin in this chat.
     #[serde(default)]
     pub live_session: bool,
     /// Whether the user is requesting cancellation of the live session.
     #[serde(default)]
     pub is_cancel_request: bool,
+    /// Quoted message context if the triggering message is a reply.
+    #[serde(default)]
+    pub quoted_message: Option<QuotedMessage>,
+    /// List of mentioned user JIDs in the triggering message.
+    #[serde(default)]
+    pub mentioned_jids: Vec<String>,
 }
 
 impl Request {
@@ -86,8 +109,12 @@ impl Request {
             push_name: String::new(),
             is_group: false,
             is_sudo: false,
+            is_owner: false,
+            is_admin: false,
             live_session: false,
             is_cancel_request: false,
+            quoted_message: None,
+            mentioned_jids: Vec::new(),
         }
     }
 
@@ -132,23 +159,116 @@ impl Request {
             &self.push_name
         }
     }
+
+    /// Returns quoted text if a quoted message is present.
+    pub fn quoted_text(&self) -> Option<&str> {
+        self.quoted_message.as_ref().map(|q| q.text.as_str())
+    }
+
+    /// Returns quoted sender JID if a quoted message is present.
+    pub fn quoted_sender(&self) -> Option<&str> {
+        self.quoted_message.as_ref().map(|q| q.sender.as_str())
+    }
+
+    /// Returns quoted message ID if a quoted message is present.
+    pub fn quoted_id(&self) -> Option<&str> {
+        self.quoted_message.as_ref().map(|q| q.id.as_str())
+    }
+
+    /// Returns true if invoked in a group.
+    pub fn is_group(&self) -> bool {
+        self.is_group
+    }
+
+    /// Returns true if sender is a sudo user or owner.
+    pub fn is_sudo(&self) -> bool {
+        self.is_sudo
+    }
+
+    /// Returns true if sender is the bot owner.
+    pub fn is_owner(&self) -> bool {
+        self.is_owner
+    }
+
+    /// Returns true if sender is a group admin.
+    pub fn is_admin(&self) -> bool {
+        self.is_admin
+    }
 }
 
-// ─── Streaming Action Protocol ───────────────────────────────────────────────
+// ─── Action Protocol (Full Capabilities) ────────────────────────────────────
 
-/// A single action frame written to stdout for the streaming protocol.
+/// A single action frame written to stdout for WhatsRook to execute.
 #[derive(Debug, Serialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum Action<'a> {
-    /// Send an initial WhatsApp message. WhatsRook replies with an Ack containing the msg_id.
+    /// Send a text reply. WhatsRook responds with an Ack containing the sent msg_id.
     Reply { text: &'a str },
-    /// Edit a previously sent message by msg_id.
+    /// Edit an existing message by msg_id.
     Edit { msg_id: &'a str, text: &'a str },
-    /// Signal end of the streaming session.
+    /// React to the triggering message or a target message with an emoji.
+    React {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        msg_id: Option<&'a str>,
+        emoji: &'a str,
+    },
+    /// Revoke/delete a message by msg_id.
+    Delete { msg_id: &'a str },
+    /// Send an image from base64 data or an HTTP/HTTPS URL.
+    SendImage {
+        data: &'a str,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        caption: Option<&'a str>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        mimetype: Option<&'a str>,
+    },
+    /// Send audio or voice note from base64 data or an HTTP/HTTPS URL.
+    SendAudio {
+        data: &'a str,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        mimetype: Option<&'a str>,
+        #[serde(default)]
+        ptt: bool,
+    },
+    /// Send video or GIF from base64 data or an HTTP/HTTPS URL.
+    SendVideo {
+        data: &'a str,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        caption: Option<&'a str>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        mimetype: Option<&'a str>,
+        #[serde(default)]
+        gif_playback: bool,
+    },
+    /// Send a document file from base64 data or an HTTP/HTTPS URL.
+    SendDocument {
+        data: &'a str,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        filename: Option<&'a str>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        caption: Option<&'a str>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        mimetype: Option<&'a str>,
+    },
+    /// Send a sticker from WebP base64 data or an HTTP/HTTPS URL.
+    SendSticker { data: &'a str },
+    /// Send an interactive poll.
+    Poll {
+        question: &'a str,
+        options: &'a [&'a str],
+        #[serde(default)]
+        selectable: usize,
+    },
+    /// Control the typing/processing loader indicator.
+    Loader {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        text: Option<&'a str>,
+    },
+    /// Signal completion of the plugin session.
     Done,
 }
 
-/// Acknowledgment sent by WhatsRook on stdin after a `reply` action.
+/// Acknowledgment sent by WhatsRook on stdin following actions that return IDs.
 #[derive(Debug, Deserialize)]
 pub struct Ack {
     pub ok: bool,
@@ -156,7 +276,7 @@ pub struct Ack {
     pub error: Option<String>,
 }
 
-/// Write a streaming action frame to stdout and flush.
+/// Write an action frame to stdout and flush immediately.
 pub fn send_action(action: &Action) {
     let json = serde_json::to_string(action).unwrap_or_default();
     let stdout = io::stdout();
@@ -184,24 +304,89 @@ pub fn send_reply_live(text: &str) -> Option<String> {
     }
 }
 
-/// Send an `edit` action (no ACK expected).
+/// Send an `edit` action to update an existing message.
 pub fn send_edit_live(msg_id: &str, text: &str) {
     send_action(&Action::Edit { msg_id, text });
 }
 
-/// Send a `done` action to gracefully end the streaming session.
+/// Send an emoji reaction to the current triggering message.
+pub fn send_react(emoji: &str) {
+    send_action(&Action::React {
+        msg_id: None,
+        emoji,
+    });
+}
+
+/// Send a delete/revoke action for a message ID.
+pub fn send_delete(msg_id: &str) {
+    send_action(&Action::Delete { msg_id });
+}
+
+/// Send an image via base64 data or HTTP/HTTPS URL with optional caption.
+pub fn send_image(data_or_url: &str, caption: Option<&str>) {
+    send_action(&Action::SendImage {
+        data: data_or_url,
+        caption,
+        mimetype: None,
+    });
+}
+
+/// Send audio/voice note via base64 data or HTTP/HTTPS URL.
+pub fn send_audio(data_or_url: &str, is_ptt: bool) {
+    send_action(&Action::SendAudio {
+        data: data_or_url,
+        mimetype: None,
+        ptt: is_ptt,
+    });
+}
+
+/// Send a video via base64 data or HTTP/HTTPS URL with optional caption.
+pub fn send_video(data_or_url: &str, caption: Option<&str>) {
+    send_action(&Action::SendVideo {
+        data: data_or_url,
+        caption,
+        mimetype: None,
+        gif_playback: false,
+    });
+}
+
+/// Send a document via base64 data or HTTP/HTTPS URL with filename and optional caption.
+pub fn send_document(data_or_url: &str, filename: &str, caption: Option<&str>) {
+    send_action(&Action::SendDocument {
+        data: data_or_url,
+        filename: Some(filename),
+        caption,
+        mimetype: None,
+    });
+}
+
+/// Send a sticker via WebP base64 data or HTTP/HTTPS URL.
+pub fn send_sticker(data_or_url: &str) {
+    send_action(&Action::SendSticker { data: data_or_url });
+}
+
+/// Send an interactive poll.
+pub fn send_poll(question: &str, options: &[&str]) {
+    send_action(&Action::Poll {
+        question,
+        options,
+        selectable: 1,
+    });
+}
+
+/// Signal completion of the plugin session.
 pub fn send_done() {
     send_action(&Action::Done);
 }
 
-// ─── Simple (Plain Text) Protocol ────────────────────────────────────────────
+// ─── Simple Mode (Plain Text) ────────────────────────────────────────────────
 
-/// Sends a plain text response to WhatsRook via stdout (simple protocol).
+/// Sends a plain text response to WhatsRook via stdout (simple mode).
 pub fn respond(output: impl AsRef<str>) {
     print!("{}", output.as_ref().trim());
 }
 
-/// Sends an error message to stderr and user via stdout, then exits.
+/// Sends an error message to stderr and stdout, then exits with code 1.
 pub fn respond_err(error_msg: impl AsRef<str>) -> ! {
     eprintln!("{}", error_msg.as_ref());
     print!("{}", error_msg.as_ref().trim());
