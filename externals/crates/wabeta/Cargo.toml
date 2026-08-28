@@ -1,0 +1,13 @@
+[package]
+name = "wabeta"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "WhatsRook external plugin for WABetaInfo WhatsApp beta updates"
+
+[dependencies]
+whatsrook-sdk = { path = "../whatsrook-sdk" }
+regex = "1.11"
+html-escape = "0.2"

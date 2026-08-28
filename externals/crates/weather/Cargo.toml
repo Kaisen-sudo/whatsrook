@@ -1,0 +1,12 @@
+[package]
+name = "weather"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "WhatsRook external plugin for real-time weather forecasts"
+
+[dependencies]
+whatsrook-sdk = { path = "../whatsrook-sdk" }
+url = "2.5"
