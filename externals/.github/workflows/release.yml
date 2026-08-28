@@ -131,10 +131,15 @@ jobs:
           fi
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.tag.outputs.name }}
-          files: release-assets/*
-          generate_release_notes: true
-          draft: false
-          prerelease: false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.name }}"
+          echo "Publishing release for tag: $TAG"
+          # If an old draft or release exists, delete it first to ensure clean state
+          gh release delete "$TAG" --yes || true
+          # Create and publish full public release (not draft, marked latest)
+          gh release create "$TAG" release-assets/* \
+            --title "Release $TAG" \
+            --generate-notes \
+            --latest
