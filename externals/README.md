@@ -6,23 +6,156 @@ External plugins run as isolated child processes, communicating with WhatsRook v
 
 ---
 
-## 📦 Available Plugins
+## ⚡ Instant 1-Click WhatsApp Installation
 
-| Command | Category | Description | Direct WhatsApp Installation (Linux AMD64) |
-| :--- | :--- | :--- | :--- |
-| **`weather`** | Utilities | Real-time weather forecast for any city or town | `.install weather https://github.com/Thruqe/whatsrook-externals/releases/latest/download/weather-linux-amd64` |
-| **`urban`** | Lookup | Urban Dictionary word/slang definition lookup | `.install urban https://github.com/Thruqe/whatsrook-externals/releases/latest/download/urban-linux-amd64` |
-| **`shorturl`** | Utilities | Shortens URLs using TinyURL and is.gd | `.install shorturl https://github.com/Thruqe/whatsrook-externals/releases/latest/download/shorturl-linux-amd64` |
-| **`calc`** | Math | Mathematical expression evaluator (`+`, `-`, `*`, `/`, `^`, `sqrt`, `sin`, `cos`, `pi`, `e`, etc.) | `.install calc https://github.com/Thruqe/whatsrook-externals/releases/latest/download/calc-linux-amd64` |
-| **`fact`** | Fun | Interesting random facts from public APIs | `.install fact https://github.com/Thruqe/whatsrook-externals/releases/latest/download/fact-linux-amd64` |
-| **`quotes`** | Fun | Inspirational quotes and authors | `.install quotes https://github.com/Thruqe/whatsrook-externals/releases/latest/download/quotes-linux-amd64` |
-| **`joke`** | Fun | Clean jokes and funny punchlines | `.install joke https://github.com/Thruqe/whatsrook-externals/releases/latest/download/joke-linux-amd64` |
-| **`rizz`** | Fun | Smooth pickup lines & rizz | `.install rizz https://github.com/Thruqe/whatsrook-externals/releases/latest/download/rizz-linux-amd64` |
-| **`btc`** | Finance | Real-time Bitcoin price and halving block metrics | `.install btc https://github.com/Thruqe/whatsrook-externals/releases/latest/download/btc-linux-amd64` |
-| **`markets`** | Finance | Forex Factory market rates (Forex, Commodities, Indices, Crypto) | `.install markets https://github.com/Thruqe/whatsrook-externals/releases/latest/download/markets-linux-amd64` |
-| **`news`** | News | Latest top news headlines by country from AP News | `.install news https://github.com/Thruqe/whatsrook-externals/releases/latest/download/news-linux-amd64` |
-| **`wabeta`** | News | Latest WhatsApp beta features and breakdowns from WABetaInfo | `.install wabeta https://github.com/Thruqe/whatsrook-externals/releases/latest/download/wabeta-linux-amd64` |
-| **`why`** | AI / Search | AI-powered knowledge reasoning and deep-search from why.com | `.install why https://github.com/Thruqe/whatsrook-externals/releases/latest/download/why-linux-amd64` |
+With WhatsRook's platform-aware installer, simply run:
+
+```text
+.install <command>
+```
+
+WhatsRook will automatically detect your server's operating system (Linux, macOS, Windows) and architecture (AMD64, ARM64) and download the matching binary from this repository.
+
+To install all official plugins at once:
+```text
+.install all
+```
+
+---
+
+## 📦 Available Plugins & Installation Commands
+
+Click the copy button on any block below to install directly from WhatsApp:
+
+### 1. Weather (`weather`)
+Real-time weather forecast for any city or town.
+```text
+.install weather
+```
+*Direct binary link (Linux x86_64):*
+```text
+https://github.com/Thruqe/whatsrook-externals/releases/latest/download/weather-linux-amd64
+```
+
+### 2. Urban Dictionary (`urban`)
+Urban Dictionary slang and definition lookup.
+```text
+.install urban
+```
+*Direct binary link (Linux x86_64):*
+```text
+https://github.com/Thruqe/whatsrook-externals/releases/latest/download/urban-linux-amd64
+```
+
+### 3. URL Shortener (`shorturl`)
+Shortens long URLs using TinyURL and is.gd.
+```text
+.install shorturl
+```
+*Direct binary link (Linux x86_64):*
+```text
+https://github.com/Thruqe/whatsrook-externals/releases/latest/download/shorturl-linux-amd64
+```
+
+### 4. Calculator & Math (`calc`)
+Mathematical expression evaluator (`+`, `-`, `*`, `/`, `%`, `^`, `sqrt`, `sin`, `cos`, `tan`, `log`, `ln`, `pi`, `e`, etc.).
+```text
+.install calc
+```
+*Direct binary link (Linux x86_64):*
+```text
+https://github.com/Thruqe/whatsrook-externals/releases/latest/download/calc-linux-amd64
+```
+
+### 5. Random Facts (`fact`)
+Interesting random facts from public APIs with offline fallbacks.
+```text
+.install fact
+```
+*Direct binary link (Linux x86_64):*
+```text
+https://github.com/Thruqe/whatsrook-externals/releases/latest/download/fact-linux-amd64
+```
+
+### 6. Inspirational Quotes (`quotes`)
+Inspirational quotes and authors.
+```text
+.install quotes
+```
+*Direct binary link (Linux x86_64):*
+```text
+https://github.com/Thruqe/whatsrook-externals/releases/latest/download/quotes-linux-amd64
+```
+
+### 7. Jokes (`joke`)
+Clean jokes and funny punchlines.
+```text
+.install joke
+```
+*Direct binary link (Linux x86_64):*
+```text
+https://github.com/Thruqe/whatsrook-externals/releases/latest/download/joke-linux-amd64
+```
+
+### 8. Rizz & Pickup Lines (`rizz`)
+Smooth pickup lines & rizz.
+```text
+.install rizz
+```
+*Direct binary link (Linux x86_64):*
+```text
+https://github.com/Thruqe/whatsrook-externals/releases/latest/download/rizz-linux-amd64
+```
+
+### 9. Bitcoin Tracker (`btc`)
+Real-time Bitcoin price and halving block metrics.
+```text
+.install btc
+```
+*Direct binary link (Linux x86_64):*
+```text
+https://github.com/Thruqe/whatsrook-externals/releases/latest/download/btc-linux-amd64
+```
+
+### 10. Forex & Market Rates (`markets`)
+Forex Factory market rates (Forex currencies, Commodities, Indices, and Crypto).
+```text
+.install markets
+```
+*Direct binary link (Linux x86_64):*
+```text
+https://github.com/Thruqe/whatsrook-externals/releases/latest/download/markets-linux-amd64
+```
+
+### 11. AP News Headlines (`news`)
+Latest top news headlines by country from AP News.
+```text
+.install news
+```
+*Direct binary link (Linux x86_64):*
+```text
+https://github.com/Thruqe/whatsrook-externals/releases/latest/download/news-linux-amd64
+```
+
+### 12. WABetaInfo Updates (`wabeta`)
+Latest WhatsApp beta features and breakdowns from WABetaInfo.
+```text
+.install wabeta
+```
+*Direct binary link (Linux x86_64):*
+```text
+https://github.com/Thruqe/whatsrook-externals/releases/latest/download/wabeta-linux-amd64
+```
+
+### 13. Why.com AI Deep Search (`why`)
+AI-powered knowledge reasoning and deep-search exploration from why.com.
+```text
+.install why
+```
+*Direct binary link (Linux x86_64):*
+```text
+https://github.com/Thruqe/whatsrook-externals/releases/latest/download/why-linux-amd64
+```
 
 ---
 
@@ -39,8 +172,7 @@ Pre-compiled binary releases are available for all major architectures and opera
 | **macOS Intel** (x86_64) | `darwin-amd64` | [`whatsrook-externals-darwin-amd64.tar.gz`](https://github.com/Thruqe/whatsrook-externals/releases/latest/download/whatsrook-externals-darwin-amd64.tar.gz) |
 | **Windows x64** | `windows-amd64.exe` | [`whatsrook-externals-windows-amd64.zip`](https://github.com/Thruqe/whatsrook-externals/releases/latest/download/whatsrook-externals-windows-amd64.zip) |
 
-To install a specific binary on your system, substitute the architecture suffix in the release URL:
-
+To download any specific binary directly for your system:
 ```text
 https://github.com/Thruqe/whatsrook-externals/releases/latest/download/<command>-<platform-suffix>
 ```
@@ -49,17 +181,19 @@ https://github.com/Thruqe/whatsrook-externals/releases/latest/download/<command>
 
 ## 🛠️ Usage with WhatsRook
 
-### 1. Installing a Plugin
+### 1. Installing Plugins
 From WhatsApp (restricted to bot owner/sudoers):
 ```text
-.install weather https://github.com/Thruqe/whatsrook-externals/releases/latest/download/weather-linux-amd64
+.install weather
+.install all
 ```
-Or from a local binary on the server:
+Or with custom URL / local path:
 ```text
+.install weather https://github.com/Thruqe/whatsrook-externals/releases/latest/download/weather-linux-amd64
 .install weather /opt/plugins/weather
 ```
 
-### 2. Running the Command
+### 2. Running Commands
 ```text
 .weather Tokyo
 .calc sqrt(144) + 2^3
@@ -74,6 +208,7 @@ Or from a local binary on the server:
 ```text
 .plist
 .uninstall weather
+.uninstall all
 ```
 
 ---
@@ -91,7 +226,7 @@ cargo build --release --workspace
 ```
 
 The compiled binaries will be placed in `target/release/`:
-```bash
+```text
 target/release/weather
 target/release/urban
 target/release/shorturl
