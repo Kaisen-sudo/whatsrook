@@ -2,14 +2,17 @@ name: Release
 
 on:
   push:
+    branches:
+      - master
+      - main
     tags:
       - 'v*'
   workflow_dispatch:
     inputs:
       tag_name:
         description: 'Release tag name (e.g. v0.1.0 or latest)'
-        required: true
-        default: 'v0.1.0'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -135,11 +138,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ steps.tag.outputs.name }}"
-          echo "Publishing release for tag: $TAG"
-          # If an old draft or release exists, delete it first to ensure clean state
+          echo "Publishing automated release for tag: $TAG"
+          # If an existing release or draft exists, delete it first to ensure clean state
           gh release delete "$TAG" --yes || true
-          # Create and publish full public release (not draft, marked latest)
+          # Create and publish full public release with all packaged binaries, marked as latest
           gh release create "$TAG" release-assets/* \
-            --title "Release $TAG" \
-            --generate-notes \
-            --latest
+            --title "WhatsRook External Plugins ($TAG)" \
+            --notes "Automated continuous release build from commit \`${{ github.sha }}\` on $(date -u +'%Y-%m-%d %H:%M:%S UTC')." \
+            --latest \
+            --target "${{ github.sha }}"
