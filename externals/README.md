@@ -197,7 +197,27 @@ Transform plain text into over 20+ decorative Unicode font styles (Fraktur, Bold
 .install fancy
 ```
 
-### 18. GitHub Repository Explorer (`git`)
+### 18. Font Styler (`font`)
+Switch or apply decorative Unicode fonts directly.
+```text
+.install font https://github.com/Thruqe/whatsrook-externals/releases/latest/download/font
+```
+*Short command:*
+```text
+.install font
+```
+
+### 19. Fonts Style Directory (`fonts`)
+List all numbered font styles and visual previews.
+```text
+.install fonts https://github.com/Thruqe/whatsrook-externals/releases/latest/download/fonts
+```
+*Short command:*
+```text
+.install fonts
+```
+
+### 20. GitHub Repository Explorer (`git`)
 Download repository .zip archives, view commits, branches, releases, and user profiles.
 ```text
 .install git https://github.com/Thruqe/whatsrook-externals/releases/latest/download/git
@@ -207,7 +227,7 @@ Download repository .zip archives, view commits, branches, releases, and user pr
 .install git
 ```
 
-### 19. MP4 URL Video Downloader (`mp4url`)
+### 21. MP4 URL Video Downloader (`mp4url`)
 Download and stream MP4 video files directly from web URLs.
 ```text
 .install mp4url https://github.com/Thruqe/whatsrook-externals/releases/latest/download/mp4url
@@ -217,7 +237,7 @@ Download and stream MP4 video files directly from web URLs.
 .install mp4url
 ```
 
-### 20. CPU Monitor (`cpu`)
+### 22. CPU Monitor (`cpu`)
 Display host processor model, architecture, active cores, and load averages.
 ```text
 .install cpu https://github.com/Thruqe/whatsrook-externals/releases/latest/download/cpu
@@ -227,7 +247,7 @@ Display host processor model, architecture, active cores, and load averages.
 .install cpu
 ```
 
-### 21. System Memory Monitor (`memory`)
+### 23. System Memory Monitor (`memory`)
 Display host total RAM, used memory percentage, and available system resources.
 ```text
 .install memory https://github.com/Thruqe/whatsrook-externals/releases/latest/download/memory

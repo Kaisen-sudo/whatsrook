@@ -18,6 +18,8 @@ members = [
     "crates/tts",
     "crates/qrcode",
     "crates/fancy",
+    "crates/font",
+    "crates/fonts",
     "crates/git",
     "crates/mp4url",
     "crates/cpu",
