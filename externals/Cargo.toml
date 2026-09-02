@@ -25,6 +25,8 @@ members = [
     "crates/cpu",
     "crates/memory",
     "crates/captcha",
+    "crates/sticker",
+    "crates/media",
 ]
 resolver = "2"
 

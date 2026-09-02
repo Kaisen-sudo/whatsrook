@@ -267,6 +267,26 @@ Generate high-resolution animated dial verification code videos.
 .install captcha
 ```
 
+### 25. Sticker Engine (`sticker`)
+Convert media to standard, circular, or cropped WebP stickers with custom author and pack metadata.
+```text
+.install sticker https://github.com/Thruqe/whatsrook-externals/releases/latest/download/sticker
+```
+*Short command:*
+```text
+.install sticker
+```
+
+### 26. Media Engine (`media`)
+Convert quoted media to MP4 video, MP3 audio, black background videos, and video trimming.
+```text
+.install media https://github.com/Thruqe/whatsrook-externals/releases/latest/download/media
+```
+*Short command:*
+```text
+.install media
+```
+
 ---
 
 ## 🚀 Quick Download & Platform Matrix
