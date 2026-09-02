@@ -1,0 +1,13 @@
+[package]
+name = "tts"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "WhatsRook external plugin for Google Text-To-Speech audio synthesis"
+
+[dependencies]
+whatsrook-sdk = { path = "../whatsrook-sdk" }
+url = "2.5"
+base64 = "0.22"

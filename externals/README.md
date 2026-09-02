@@ -157,6 +157,86 @@ AI-powered knowledge reasoning and deep-search exploration from why.com.
 .install why
 ```
 
+### 14. Webpage Screenshot (`ss`)
+Capture full website screenshots via high-resolution rendering engines.
+```text
+.install ss https://github.com/Thruqe/whatsrook-externals/releases/latest/download/ss
+```
+*Short command:*
+```text
+.install ss
+```
+
+### 15. Text-To-Speech (`tts`)
+Convert text to natural speech audio via Google TTS with multilingual support.
+```text
+.install tts https://github.com/Thruqe/whatsrook-externals/releases/latest/download/tts
+```
+*Short command:*
+```text
+.install tts
+```
+
+### 16. QR Code Generator (`qrcode`)
+Generate high-resolution QR code PNG images from any text or URL.
+```text
+.install qrcode https://github.com/Thruqe/whatsrook-externals/releases/latest/download/qrcode
+```
+*Short command:*
+```text
+.install qrcode
+```
+
+### 17. Fancy Font Styler (`fancy`)
+Transform plain text into over 20+ decorative Unicode font styles (Fraktur, Bold, Italic, Small Caps, Double Struck, etc.).
+```text
+.install fancy https://github.com/Thruqe/whatsrook-externals/releases/latest/download/fancy
+```
+*Short command:*
+```text
+.install fancy
+```
+
+### 18. GitHub Repository Explorer (`git`)
+Download repository .zip archives, view commits, branches, releases, and user profiles.
+```text
+.install git https://github.com/Thruqe/whatsrook-externals/releases/latest/download/git
+```
+*Short command:*
+```text
+.install git
+```
+
+### 19. MP4 URL Video Downloader (`mp4url`)
+Download and stream MP4 video files directly from web URLs.
+```text
+.install mp4url https://github.com/Thruqe/whatsrook-externals/releases/latest/download/mp4url
+```
+*Short command:*
+```text
+.install mp4url
+```
+
+### 20. CPU Monitor (`cpu`)
+Display host processor model, architecture, active cores, and load averages.
+```text
+.install cpu https://github.com/Thruqe/whatsrook-externals/releases/latest/download/cpu
+```
+*Short command:*
+```text
+.install cpu
+```
+
+### 21. System Memory Monitor (`memory`)
+Display host total RAM, used memory percentage, and available system resources.
+```text
+.install memory https://github.com/Thruqe/whatsrook-externals/releases/latest/download/memory
+```
+*Short command:*
+```text
+.install memory
+```
+
 ---
 
 ## 🚀 Quick Download & Platform Matrix
@@ -235,6 +315,14 @@ target/release/markets
 target/release/news
 target/release/wabeta
 target/release/why
+target/release/ss
+target/release/tts
+target/release/qrcode
+target/release/fancy
+target/release/git
+target/release/mp4url
+target/release/cpu
+target/release/memory
 ```
 
 ---
