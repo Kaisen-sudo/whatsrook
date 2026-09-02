@@ -53,7 +53,8 @@ fn main() {
             total, used, pct, avail
         )
     } else {
-        "*System Memory Information*\n\nMemory statistics unavailable for current platform.".to_string()
+        "*System Memory Information*\n\nMemory statistics unavailable for current platform."
+            .to_string()
     };
 
     respond(text);

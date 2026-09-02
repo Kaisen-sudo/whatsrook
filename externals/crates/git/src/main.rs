@@ -137,7 +137,11 @@ fn main() {
             let target = &req.args[1];
             if let Some((owner, repo)) = parse_owner_repo(target) {
                 let url = format!("https://api.github.com/repos/{}/{}", owner, repo);
-                match client.get(&url).header("Accept", "application/vnd.github.v3+json").send() {
+                match client
+                    .get(&url)
+                    .header("Accept", "application/vnd.github.v3+json")
+                    .send()
+                {
                     Ok(resp) => {
                         if let Ok(info) = resp.json::<RepoInfo>() {
                             let mut text = format!(
@@ -175,8 +179,15 @@ fn main() {
             }
             let target = &req.args[1];
             if let Some((owner, repo)) = parse_owner_repo(target) {
-                let url = format!("https://api.github.com/repos/{}/{}/commits?per_page=5", owner, repo);
-                match client.get(&url).header("Accept", "application/vnd.github.v3+json").send() {
+                let url = format!(
+                    "https://api.github.com/repos/{}/{}/commits?per_page=5",
+                    owner, repo
+                );
+                match client
+                    .get(&url)
+                    .header("Accept", "application/vnd.github.v3+json")
+                    .send()
+                {
                     Ok(resp) => {
                         if let Ok(commits) = resp.json::<Vec<CommitItem>>() {
                             if commits.is_empty() {
@@ -186,9 +197,25 @@ fn main() {
                             let mut text = format!("*Recent Commits ({}/{}):*\n\n", owner, repo);
                             for c in commits {
                                 let short_sha = if c.sha.len() > 7 { &c.sha[..7] } else { &c.sha };
-                                let first_line = c.commit.message.lines().next().unwrap_or("").trim();
-                                let author_name = c.commit.author.map(|a| a.name).unwrap_or_else(|| "Unknown".to_string());
-                                text.push_str(&format!("• `{}` {} - _{}_\n", short_sha, first_line, author_name));
+                                let first_line =
+                                    c.commit.message.lines().next().unwrap_or("").trim();
+                                let author_info = c
+                                    .commit
+                                    .author
+                                    .map(|a| {
+                                        if !a.date.is_empty() {
+                                            let date_part =
+                                                a.date.split('T').next().unwrap_or(&a.date);
+                                            format!("{} [{}]", a.name, date_part)
+                                        } else {
+                                            a.name
+                                        }
+                                    })
+                                    .unwrap_or_else(|| "Unknown".to_string());
+                                text.push_str(&format!(
+                                    "• `{}` {} - _{}_\n",
+                                    short_sha, first_line, author_info
+                                ));
                             }
                             respond(text);
                             return;
@@ -206,15 +233,26 @@ fn main() {
             }
             let target = &req.args[1];
             if let Some((owner, repo)) = parse_owner_repo(target) {
-                let url = format!("https://api.github.com/repos/{}/{}/branches?per_page=15", owner, repo);
-                match client.get(&url).header("Accept", "application/vnd.github.v3+json").send() {
+                let url = format!(
+                    "https://api.github.com/repos/{}/{}/branches?per_page=15",
+                    owner, repo
+                );
+                match client
+                    .get(&url)
+                    .header("Accept", "application/vnd.github.v3+json")
+                    .send()
+                {
                     Ok(resp) => {
                         if let Ok(branches) = resp.json::<Vec<BranchItem>>() {
                             if branches.is_empty() {
                                 respond("No branches found.");
                                 return;
                             }
-                            let list = branches.iter().map(|b| format!("• {}", b.name)).collect::<Vec<_>>().join("\n");
+                            let list = branches
+                                .iter()
+                                .map(|b| format!("• {}", b.name))
+                                .collect::<Vec<_>>()
+                                .join("\n");
                             respond(format!("*Branches ({}/{}):*\n\n{}", owner, repo, list));
                             return;
                         }
@@ -231,8 +269,15 @@ fn main() {
             }
             let target = &req.args[1];
             if let Some((owner, repo)) = parse_owner_repo(target) {
-                let url = format!("https://api.github.com/repos/{}/{}/releases?per_page=5", owner, repo);
-                match client.get(&url).header("Accept", "application/vnd.github.v3+json").send() {
+                let url = format!(
+                    "https://api.github.com/repos/{}/{}/releases?per_page=5",
+                    owner, repo
+                );
+                match client
+                    .get(&url)
+                    .header("Accept", "application/vnd.github.v3+json")
+                    .send()
+                {
                     Ok(resp) => {
                         if let Ok(releases) = resp.json::<Vec<ReleaseItem>>() {
                             if releases.is_empty() {
@@ -242,7 +287,19 @@ fn main() {
                             let mut text = format!("*Releases ({}/{}):*\n\n", owner, repo);
                             for r in releases {
                                 let name = r.name.unwrap_or_else(|| r.tag_name.clone());
-                                text.push_str(&format!("• *{}* (`{}`)\n", name, r.tag_name));
+                                let date_str = r
+                                    .published_at
+                                    .as_deref()
+                                    .and_then(|d| d.split('T').next())
+                                    .unwrap_or("");
+                                if !date_str.is_empty() {
+                                    text.push_str(&format!(
+                                        "• *{}* (`{}`) - _{}_\n",
+                                        name, r.tag_name, date_str
+                                    ));
+                                } else {
+                                    text.push_str(&format!("• *{}* (`{}`)\n", name, r.tag_name));
+                                }
                             }
                             respond(text);
                             return;
@@ -260,7 +317,11 @@ fn main() {
             }
             let username = &req.args[1];
             let url = format!("https://api.github.com/users/{}", username);
-            match client.get(&url).header("Accept", "application/vnd.github.v3+json").send() {
+            match client
+                .get(&url)
+                .header("Accept", "application/vnd.github.v3+json")
+                .send()
+            {
                 Ok(resp) => {
                     if let Ok(u) = resp.json::<UserInfo>() {
                         let mut text = format!(
@@ -293,18 +354,33 @@ fn main() {
                 respond_err(format!("Usage: {}git search <query>", req.prefix()));
             }
             let search_term = req.raw_args[req.args[0].len()..].trim();
-            let encoded: String = url::form_urlencoded::byte_serialize(search_term.as_bytes()).collect();
-            let url = format!("https://api.github.com/search/repositories?q={}&per_page=5", encoded);
-            match client.get(&url).header("Accept", "application/vnd.github.v3+json").send() {
+            let encoded: String =
+                url::form_urlencoded::byte_serialize(search_term.as_bytes()).collect();
+            let url = format!(
+                "https://api.github.com/search/repositories?q={}&per_page=5",
+                encoded
+            );
+            match client
+                .get(&url)
+                .header("Accept", "application/vnd.github.v3+json")
+                .send()
+            {
                 Ok(resp) => {
                     if let Ok(res) = resp.json::<SearchResult>() {
                         if res.items.is_empty() {
                             respond(format!("No repositories found for `{}`", search_term));
                             return;
                         }
-                        let mut text = format!("*GitHub Search Results for `{}`:*\n\n", search_term);
+                        let mut text =
+                            format!("*GitHub Search Results for `{}`:*\n\n", search_term);
                         for item in res.items {
-                            text.push_str(&format!("• *{}* (⭐ {})\n  _{}_\n  {}\n\n", item.full_name, item.stargazers_count, item.description.unwrap_or_default(), item.html_url));
+                            text.push_str(&format!(
+                                "• *{}* (⭐ {})\n  _{}_\n  {}\n\n",
+                                item.full_name,
+                                item.stargazers_count,
+                                item.description.unwrap_or_default(),
+                                item.html_url
+                            ));
                         }
                         respond(text.trim());
                         return;
@@ -318,14 +394,22 @@ fn main() {
         _ => {
             // Default action: download repository archive (.zip)
             let target = if sub == "download" || sub == "clone" {
-                if req.args.len() > 1 { &req.args[1] } else { "" }
+                if req.args.len() > 1 {
+                    &req.args[1]
+                } else {
+                    ""
+                }
             } else {
                 &query
             };
 
             if let Some((owner, repo)) = parse_owner_repo(target) {
                 let zip_url = format!("https://api.github.com/repos/{}/{}/zipball", owner, repo);
-                match client.get(&zip_url).header("Accept", "application/vnd.github.v3+json").send() {
+                match client
+                    .get(&zip_url)
+                    .header("Accept", "application/vnd.github.v3+json")
+                    .send()
+                {
                     Ok(resp) => {
                         if resp.status().is_success() {
                             if let Ok(bytes) = resp.bytes() {
@@ -335,7 +419,11 @@ fn main() {
                                         base64::engine::general_purpose::STANDARD.encode(&bytes)
                                     );
                                     let filename = format!("{}-{}.zip", owner, repo);
-                                    send_document(&b64, &filename, Some(&format!("📦 Repository: {}/{}", owner, repo)));
+                                    send_document(
+                                        &b64,
+                                        &filename,
+                                        Some(&format!("📦 Repository: {}/{}", owner, repo)),
+                                    );
                                     return;
                                 }
                             }

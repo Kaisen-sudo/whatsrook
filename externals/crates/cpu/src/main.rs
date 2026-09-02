@@ -6,7 +6,10 @@ fn get_cpu_model() -> String {
     {
         if let Ok(content) = fs::read_to_string("/proc/cpuinfo") {
             for line in content.lines() {
-                if line.starts_with("model name") || line.starts_with("Hardware") || line.starts_with("Processor") {
+                if line.starts_with("model name")
+                    || line.starts_with("Hardware")
+                    || line.starts_with("Processor")
+                {
                     if let Some(val) = line.split(':').nth(1) {
                         return val.trim().to_string();
                     }
@@ -34,7 +37,9 @@ fn main() {
     let _req = Request::load();
 
     let model = get_cpu_model();
-    let cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
+    let cores = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(1);
     let load_avg = get_load_avg();
     let arch = std::env::consts::ARCH;
     let os = std::env::consts::OS;

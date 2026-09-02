@@ -22,7 +22,10 @@ fn main() {
     }
 
     let mut target_url = query.split_whitespace().next().unwrap_or("").to_string();
-    target_url = target_url.trim_start_matches('<').trim_end_matches('>').to_string();
+    target_url = target_url
+        .trim_start_matches('<')
+        .trim_end_matches('>')
+        .to_string();
 
     if !target_url.starts_with("http://") && !target_url.starts_with("https://") {
         target_url = format!("https://{}", target_url);

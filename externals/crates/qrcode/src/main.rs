@@ -19,8 +19,7 @@ fn main() {
         return;
     }
 
-    let encoded_query: String =
-        url::form_urlencoded::byte_serialize(query.as_bytes()).collect();
+    let encoded_query: String = url::form_urlencoded::byte_serialize(query.as_bytes()).collect();
 
     // Fetch high resolution QR Code image from primary QR service
     let qr_url = format!(
