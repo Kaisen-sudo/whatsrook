@@ -257,6 +257,16 @@ Display host total RAM, used memory percentage, and available system resources.
 .install memory
 ```
 
+### 24. Captcha Video Generator (`captcha`)
+Generate high-resolution animated dial verification code videos.
+```text
+.install captcha https://github.com/Thruqe/whatsrook-externals/releases/latest/download/captcha
+```
+*Short command:*
+```text
+.install captcha
+```
+
 ---
 
 ## 🚀 Quick Download & Platform Matrix
