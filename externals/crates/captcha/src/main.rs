@@ -124,6 +124,7 @@ fn get_pos(
     (cx + r * rad.cos(), cy + r * rad.sin())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn draw_dashed_line(
     pixmap: &mut Pixmap,
     x0: f64,
@@ -150,8 +151,10 @@ fn draw_dashed_line(
     paint.set_color(Color::from_rgba(1.0, 1.0, 1.0, alpha).unwrap_or(Color::WHITE));
     paint.anti_alias = true;
 
-    let mut stroke = Stroke::default();
-    stroke.width = 1.5;
+    let stroke = Stroke {
+        width: 1.5,
+        ..Default::default()
+    };
 
     while pos < dist {
         let seg_len = if drawing { dash_len } else { gap_len };
@@ -196,9 +199,7 @@ fn render_frame(
     let opening_move_start = INTRO_DURATION;
     let opening_move_end = INTRO_DURATION + MOVE_DURATION;
 
-    let (current_x, current_y) = if sequence.is_empty() {
-        (cx, cy)
-    } else if now < opening_move_start {
+    let (current_x, current_y) = if sequence.is_empty() || now < opening_move_start {
         (cx, cy)
     } else if now < opening_move_end {
         let p = ease_in_out_cubic((now - opening_move_start) / MOVE_DURATION);
@@ -245,8 +246,10 @@ fn render_frame(
             stroke_paint.set_color(Color::from_rgba(1.0, 1.0, 1.0, alpha).unwrap_or(Color::WHITE));
             stroke_paint.anti_alias = true;
 
-            let mut stroke = Stroke::default();
-            stroke.width = ((dial_radius * 0.015).max(3.0)) as f32;
+            let stroke = Stroke {
+                width: ((dial_radius * 0.015).max(3.0)) as f32,
+                ..Default::default()
+            };
             pixmap.stroke_path(&path, &stroke_paint, &stroke, Transform::identity(), None);
         }
     }
@@ -267,9 +270,11 @@ fn render_frame(
             stroke_paint.set_color(Color::from_rgba(1.0, 1.0, 1.0, alpha).unwrap_or(Color::WHITE));
             stroke_paint.anti_alias = true;
 
-            let mut stroke = Stroke::default();
-            stroke.width = t.width as f32;
-            stroke.line_cap = LineCap::Round;
+            let stroke = Stroke {
+                width: t.width as f32,
+                line_cap: LineCap::Round,
+                ..Default::default()
+            };
             pixmap.stroke_path(&path, &stroke_paint, &stroke, Transform::identity(), None);
         }
     }
@@ -364,8 +369,10 @@ fn render_frame(
             );
             stroke_paint.anti_alias = true;
 
-            let mut stroke = Stroke::default();
-            stroke.width = 2.2;
+            let stroke = Stroke {
+                width: 2.2,
+                ..Default::default()
+            };
             pixmap.stroke_path(&path, &stroke_paint, &stroke, Transform::identity(), None);
         }
     }
@@ -375,7 +382,7 @@ fn render_frame(
     let scale = Scale::uniform(font_size);
     let v_metrics = font.v_metrics(scale);
 
-    for (&digit, _) in cfg.iter() {
+    for &digit in cfg.keys() {
         let (x, y) = get_pos(cfg, digit, cx, cy, dial_radius);
         let glyph = font.glyph(digit).scaled(scale);
         let h_metrics = glyph.h_metrics();
