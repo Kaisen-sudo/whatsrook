@@ -1,0 +1,34 @@
+site_name: WhatsRook External Plugins
+site_description: Official suite of standalone external plugins and SDK for WhatsRook
+site_author: Thruqe
+repo_url: https://github.com/thruqe/whatsrook-externals
+repo_name: thruqe/whatsrook-externals
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: deep purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: deep purple
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+
+nav:
+  - Overview: index.md
+  - Installation: installation.md
+  - Plugins: plugins.md
+  - SDK & Development: sdk.md
