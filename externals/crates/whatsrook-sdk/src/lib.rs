@@ -19,6 +19,20 @@ pub struct QuotedMessage {
     pub text: String,
 }
 
+/// Media attached to (or quoted in) the triggering message, already downloaded to a local temp file by WhatsRook.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct MediaPayload {
+    /// Local filesystem path to the downloaded media file.
+    #[serde(default)]
+    pub path: String,
+    /// Media MIME type (e.g. "image/jpeg", "video/mp4", "image/webp").
+    #[serde(default)]
+    pub mimetype: String,
+    /// True if the media was extracted from a quoted message rather than the triggering message itself.
+    #[serde(default)]
+    pub is_quoted: bool,
+}
+
 /// Incoming request payload sent by WhatsRook via standard input.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Request {
@@ -65,6 +79,15 @@ pub struct Request {
     /// List of mentioned user JIDs in the triggering message.
     #[serde(default)]
     pub mentioned_jids: Vec<String>,
+    /// Media (image/video/audio/sticker) attached to or quoted by the triggering message, already downloaded locally.
+    #[serde(default)]
+    pub media: Option<MediaPayload>,
+    /// Sticker pack name configured for the sender/chat (used by sticker-producing commands).
+    #[serde(default)]
+    pub sticker_pack: String,
+    /// Sticker author configured for the sender/chat (used by sticker-producing commands).
+    #[serde(default)]
+    pub sticker_author: String,
 }
 
 impl Request {
@@ -115,6 +138,9 @@ impl Request {
             is_cancel_request: false,
             quoted_message: None,
             mentioned_jids: Vec::new(),
+            media: None,
+            sticker_pack: String::new(),
+            sticker_author: String::new(),
         }
     }
 
@@ -173,6 +199,11 @@ impl Request {
     /// Returns quoted message ID if a quoted message is present.
     pub fn quoted_id(&self) -> Option<&str> {
         self.quoted_message.as_ref().map(|q| q.id.as_str())
+    }
+
+    /// Returns the attached/quoted media payload, if any was downloaded by WhatsRook for this command.
+    pub fn media(&self) -> Option<&MediaPayload> {
+        self.media.as_ref()
     }
 
     /// Returns true if invoked in a group.

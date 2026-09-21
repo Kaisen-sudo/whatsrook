@@ -1,6 +1,7 @@
+use base64::Engine;
 use std::fs;
 use std::process::Command;
-use whatsrook_sdk::{respond, Request};
+use whatsrook_sdk::{respond, send_done, send_sticker, Request};
 
 fn write_exif_metadata(webp_bytes: &[u8], pack_name: &str, author: &str) -> Vec<u8> {
     let json_meta = serde_json::json!({
@@ -129,35 +130,40 @@ fn main() {
         }
     }
 
-    let cli_args: Vec<String> = std::env::args().collect();
-    if cli_args.len() > 1 && !cli_args[1].starts_with('{') {
-        let input_file = &cli_args[1];
-        let output_file = cli_args
-            .get(2)
-            .map(|s| s.as_str())
-            .unwrap_or("sticker.webp");
-        match convert_to_sticker(input_file, is_circle, is_crop, &pack_name, &author) {
+    // A quoted/attached media file, already downloaded locally by WhatsRook, is required
+    // to actually produce a sticker. Without it we fall back to the command menu below.
+    if let Some(media) = req.media() {
+        if media.path.is_empty() {
+            respond_missing_media(&req);
+            return;
+        }
+
+        match convert_to_sticker(&media.path, is_circle, is_crop, &pack_name, &author) {
             Ok(bytes) => {
-                if let Err(e) = fs::write(output_file, &bytes) {
-                    eprintln!("Error saving sticker to {}: {}", output_file, e);
-                    std::process::exit(1);
-                }
-                println!("Saved {} bytes to {}", bytes.len(), output_file);
-                return;
+                let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                send_sticker(&encoded);
+                send_done();
             }
             Err(e) => {
                 eprintln!("Sticker generation error: {}", e);
-                std::process::exit(1);
+                respond(format!("❌ Failed to generate sticker: {}", e));
             }
         }
+        return;
     }
 
+    respond_missing_media(&req);
+}
+
+/// Shows the sticker command menu (used when no media was attached to/quoted by the message).
+fn respond_missing_media(req: &Request) {
     respond(format!(
         "*{bot_name} Sticker Engine*\n\n\
          • `{prefix}sticker [author | pack]` : Convert media to standard WebP sticker\n\
          • `{prefix}circle [author | pack]`  : Convert media to circular WebP sticker\n\
          • `{prefix}crop [author | pack]`    : Convert media to square cropped WebP sticker\n\
-         • `{prefix}take [author | pack]`    : Re-pack metadata for any existing sticker",
+         • `{prefix}take [author | pack]`    : Re-pack metadata for any existing sticker\n\n\
+         _Reply to an image, video, or sticker with one of the commands above._",
         bot_name = req.bot_name(),
         prefix = req.prefix()
     ));
