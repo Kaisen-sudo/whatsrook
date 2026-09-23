@@ -58,6 +58,17 @@ For prebuilt binaries, custom URLs, and building from source, see the [Installat
 
 Full usage examples and command reference: [Plugin Catalog](https://thruqe.github.io/whatsrook-externals/plugins/)
 
+## Documentation
+
+Explore the complete documentation website at [thruqe.github.io/whatsrook-externals](https://thruqe.github.io/whatsrook-externals/):
+
+- 📖 [**Overview**](https://thruqe.github.io/whatsrook-externals/) &mdash; High-level features, advantages, and ecosystem comparison.
+- 📦 [**Installation Guide**](https://thruqe.github.io/whatsrook-externals/installation/) &mdash; WhatsApp 1-click install, prebuilt platform archives, Docker, and source compilation.
+- 🔄 [**Architecture & Protocol**](https://thruqe.github.io/whatsrook-externals/protocol/) &mdash; Stdin/stdout NDJSON wire protocol, Request schema, Action frames, and ACK loops.
+- 🧩 [**Plugin Catalog**](https://thruqe.github.io/whatsrook-externals/plugins/) &mdash; Deep technical reference and live previews for all 29 official plugins.
+- 🛠️ [**SDK & Development Guide**](https://thruqe.github.io/whatsrook-externals/sdk/) &mdash; Build custom plugins with `whatsrook-sdk` in Rust.
+- 🔍 [**Troubleshooting & FAQ**](https://thruqe.github.io/whatsrook-externals/troubleshooting/) &mdash; Resolving permissions, FFmpeg setup, timeouts, and CLI debugging.
+
 ## Building from Source
 
 ```bash
