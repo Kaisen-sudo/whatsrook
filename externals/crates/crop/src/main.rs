@@ -1,6 +1,6 @@
 use std::fs;
 use std::process::Command;
-use whatsrook_sdk::{Request, respond};
+use whatsrook_sdk::{respond, Request};
 
 fn write_exif_metadata(webp_bytes: &[u8], pack_name: &str, author: &str) -> Vec<u8> {
     let json_meta = serde_json::json!({
@@ -50,16 +50,28 @@ fn convert_to_crop_sticker(
 
     let status = Command::new("ffmpeg")
         .args([
-            "-y", "-i", input_path,
-            "-t", "8",
-            "-vf", "crop='min(iw,ih)':'min(iw,ih)',scale=512:512",
-            "-vcodec", "libwebp",
-            "-lossless", "0",
-            "-q:v", "35",
-            "-compression_level", "6",
-            "-loop", "0",
-            "-preset", "default",
-            "-an", "-pix_fmt", "yuva420p",
+            "-y",
+            "-i",
+            input_path,
+            "-t",
+            "8",
+            "-vf",
+            "crop='min(iw,ih)':'min(iw,ih)',scale=512:512",
+            "-vcodec",
+            "libwebp",
+            "-lossless",
+            "0",
+            "-q:v",
+            "35",
+            "-compression_level",
+            "6",
+            "-loop",
+            "0",
+            "-preset",
+            "default",
+            "-an",
+            "-pix_fmt",
+            "yuva420p",
             &out_path,
         ])
         .status()
@@ -70,8 +82,8 @@ fn convert_to_crop_sticker(
         return Err("ffmpeg failed to process crop sticker".to_string());
     }
 
-    let webp_raw = fs::read(&out_path)
-        .map_err(|e| format!("Failed to read sticker output: {}", e))?;
+    let webp_raw =
+        fs::read(&out_path).map_err(|e| format!("Failed to read sticker output: {}", e))?;
     let _ = fs::remove_file(&out_path);
     Ok(write_exif_metadata(&webp_raw, pack_name, author))
 }

@@ -1,6 +1,6 @@
 use std::fs;
 use std::process::Command;
-use whatsrook_sdk::{Request, respond};
+use whatsrook_sdk::{respond, Request};
 
 fn write_exif_metadata(webp_bytes: &[u8], pack_name: &str, author: &str) -> Vec<u8> {
     let json_meta = serde_json::json!({
@@ -44,11 +44,7 @@ fn write_exif_metadata(webp_bytes: &[u8], pack_name: &str, author: &str) -> Vec<
 }
 
 /// Converts any ffmpeg-readable media file to a letterboxed 512×512 WebP sticker.
-fn convert_to_sticker(
-    input_path: &str,
-    pack_name: &str,
-    author: &str,
-) -> Result<Vec<u8>, String> {
+fn convert_to_sticker(input_path: &str, pack_name: &str, author: &str) -> Result<Vec<u8>, String> {
     let tmp_dir = std::env::temp_dir();
     let out_path = format!(
         "{}/sticker_{}_{}.webp",
@@ -62,16 +58,28 @@ fn convert_to_sticker(
 
     let status = Command::new("ffmpeg")
         .args([
-            "-y", "-i", input_path,
-            "-t", "8",
-            "-vf", vf,
-            "-vcodec", "libwebp",
-            "-lossless", "0",
-            "-q:v", "35",
-            "-compression_level", "6",
-            "-loop", "0",
-            "-preset", "default",
-            "-an", "-pix_fmt", "yuva420p",
+            "-y",
+            "-i",
+            input_path,
+            "-t",
+            "8",
+            "-vf",
+            vf,
+            "-vcodec",
+            "libwebp",
+            "-lossless",
+            "0",
+            "-q:v",
+            "35",
+            "-compression_level",
+            "6",
+            "-loop",
+            "0",
+            "-preset",
+            "default",
+            "-an",
+            "-pix_fmt",
+            "yuva420p",
             &out_path,
         ])
         .status()

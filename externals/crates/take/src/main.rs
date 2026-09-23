@@ -1,5 +1,5 @@
 use std::fs;
-use whatsrook_sdk::{Request, respond, respond_err};
+use whatsrook_sdk::{respond, respond_err, Request};
 
 /// Replaces the EXIF sticker metadata chunk in a WebP file.
 fn rewrite_exif_metadata(webp_bytes: &[u8], pack_name: &str, author: &str) -> Vec<u8> {
