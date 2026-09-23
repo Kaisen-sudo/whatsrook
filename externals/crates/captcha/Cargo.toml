@@ -8,7 +8,7 @@ repository.workspace = true
 description = "WhatsRook external plugin for generating animated video verification captchas"
 
 [dependencies]
-whatsrook-sdk = { path = "../whatsrook-sdk" }
+whatsrook-sdk.workspace = true
 tiny-skia = "0.12"
 rusttype = "0.9"
 rand = "0.8"

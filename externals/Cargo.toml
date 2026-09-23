@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    "crates/whatsrook-sdk",
     "crates/weather",
     "crates/urban",
     "crates/shorturl",
@@ -26,6 +25,9 @@ members = [
     "crates/memory",
     "crates/captcha",
     "crates/sticker",
+    "crates/circle",
+    "crates/crop",
+    "crates/take",
     "crates/media",
 ]
 resolver = "2"
@@ -37,6 +39,10 @@ authors = ["Thruqe"]
 license = "MIT"
 repository = "https://github.com/Thruqe/whatsrook-externals"
 keywords = ["whatsrook", "plugins", "whatsapp", "bot", "cli"]
+
+[workspace.dependencies]
+# Published SDK — use the crates.io release instead of the old local path.
+whatsrook-sdk = "0.1"
 
 [profile.release]
 opt-level = 3

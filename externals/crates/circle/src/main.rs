@@ -7,13 +7,12 @@ fn write_exif_metadata(webp_bytes: &[u8], pack_name: &str, author: &str) -> Vec<
         "sticker-pack-id": "whatsrook-sticker-pack",
         "sticker-pack-name": pack_name,
         "sticker-pack-publisher": author,
-        "emojis": ["🤖"]
+        "emojis": ["⭕"]
     });
-    let json_str = json_meta.to_string();
-    let json_bytes = json_str.as_bytes();
+    let json_bytes = json_meta.to_string();
+    let json_bytes = json_bytes.as_bytes();
 
     let mut exif_payload = Vec::new();
-    // Standard WhatsApp WebP EXIF header — required for sticker pack metadata.
     exif_payload.extend_from_slice(b"Exif\x00\x00II*\x00\x08\x00\x00\x00\x01\x00A\x01\x04\x00\x00\x00\x00\x00\x16\x00\x00\x00\x00\x00\x00\x00");
     exif_payload.extend_from_slice(json_bytes);
 
@@ -23,8 +22,6 @@ fn write_exif_metadata(webp_bytes: &[u8], pack_name: &str, author: &str) -> Vec<
 
     let mut result = Vec::new();
     result.extend_from_slice(&webp_bytes[0..12]);
-
-    // Append EXIF chunk before the existing payload.
     result.extend_from_slice(b"EXIF");
     let exif_len = exif_payload.len() as u32;
     result.extend_from_slice(&exif_len.to_le_bytes());
@@ -32,33 +29,26 @@ fn write_exif_metadata(webp_bytes: &[u8], pack_name: &str, author: &str) -> Vec<
     if exif_payload.len() % 2 != 0 {
         result.push(0);
     }
-
-    // Copy remaining WebP chunks.
     result.extend_from_slice(&webp_bytes[12..]);
-
-    // Patch the RIFF container size field.
     let total_riff_len = (result.len() - 8) as u32;
     result[4..8].copy_from_slice(&total_riff_len.to_le_bytes());
-
     result
 }
 
-/// Converts any ffmpeg-readable media file to a letterboxed 512×512 WebP sticker.
-fn convert_to_sticker(
+fn convert_to_circle_sticker(
     input_path: &str,
     pack_name: &str,
     author: &str,
 ) -> Result<Vec<u8>, String> {
     let tmp_dir = std::env::temp_dir();
     let out_path = format!(
-        "{}/sticker_{}_{}.webp",
+        "{}/circle_{}_{}.webp",
         tmp_dir.display(),
         std::process::id(),
         rand::random::<u32>()
     );
 
-    // Letterbox: scale to fit within 512×512 and pad transparent edges.
-    let vf = "scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=black@0";
+    let vf = "format=yuva420p,scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=black@0,geq=alpha_expr='if(lte(hypot(X-W/2,Y-H/2),W/2),255,0)'";
 
     let status = Command::new("ffmpeg")
         .args([
@@ -79,23 +69,21 @@ fn convert_to_sticker(
 
     if !status.success() {
         let _ = fs::remove_file(&out_path);
-        return Err("ffmpeg failed to process sticker".to_string());
+        return Err("ffmpeg failed to process circular sticker".to_string());
     }
 
-    let webp_raw =
-        fs::read(&out_path).map_err(|e| format!("Failed to read sticker output: {}", e))?;
+    let webp_raw = fs::read(&out_path)
+        .map_err(|e| format!("Failed to read sticker output: {}", e))?;
     let _ = fs::remove_file(&out_path);
-
     Ok(write_exif_metadata(&webp_raw, pack_name, author))
 }
 
 fn main() {
     let req = Request::load();
-    let query = req.query();
-
     let mut pack_name = req.bot_name().to_string();
     let mut author = "WhatsRook".to_string();
 
+    let query = req.query();
     if !query.is_empty() {
         let parts: Vec<&str> = query.split('|').collect();
         if !parts.is_empty() && !parts[0].trim().is_empty() {
@@ -106,15 +94,11 @@ fn main() {
         }
     }
 
-    // CLI / local dev mode: WhatsRook passes the quoted media file path as argv[1].
     let cli_args: Vec<String> = std::env::args().collect();
     if cli_args.len() > 1 && !cli_args[1].starts_with('{') {
         let input_file = &cli_args[1];
-        let output_file = cli_args
-            .get(2)
-            .map(|s| s.as_str())
-            .unwrap_or("sticker.webp");
-        match convert_to_sticker(input_file, &pack_name, &author) {
+        let output_file = cli_args.get(2).map(|s| s.as_str()).unwrap_or("circle.webp");
+        match convert_to_circle_sticker(input_file, &pack_name, &author) {
             Ok(bytes) => {
                 if let Err(e) = fs::write(output_file, &bytes) {
                     eprintln!("Error saving sticker to {}: {}", output_file, e);
@@ -123,7 +107,7 @@ fn main() {
                 println!("Saved {} bytes to {}", bytes.len(), output_file);
             }
             Err(e) => {
-                eprintln!("Sticker generation error: {}", e);
+                eprintln!("Circle sticker error: {}", e);
                 std::process::exit(1);
             }
         }
@@ -131,7 +115,7 @@ fn main() {
     }
 
     respond(format!(
-        "Reply to an image or video with `{prefix}sticker [author | pack]` to convert it to a WebP sticker.",
+        "Reply to an image or video with `{prefix}circle [author | pack]` to convert it to a circular sticker.",
         prefix = req.prefix()
     ));
 }

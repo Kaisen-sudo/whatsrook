@@ -8,5 +8,5 @@ repository.workspace = true
 description = "WhatsRook external plugin for pickup lines (rizz)"
 
 [dependencies]
-whatsrook-sdk = { path = "../whatsrook-sdk" }
+whatsrook-sdk.workspace = true
 rand = "0.8"

@@ -8,6 +8,6 @@ repository.workspace = true
 description = "WhatsRook external plugin for Google Text-To-Speech audio synthesis"
 
 [dependencies]
-whatsrook-sdk = { path = "../whatsrook-sdk" }
+whatsrook-sdk.workspace = true
 url = "2.5"
 base64 = "0.22"

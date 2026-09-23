@@ -1,69 +1,62 @@
-# WhatsRook External Plugins
+![whatsrook](./assets/logo.svg)
 
-[![CI](https://github.com/Thruqe/whatsrook-externals/actions/workflows/ci.yml/badge.svg)](https://github.com/Thruqe/whatsrook-externals/actions/workflows/ci.yml)
-[![Website](https://github.com/Thruqe/whatsrook-externals/actions/workflows/website.yml/badge.svg)](https://thruqe.github.io/whatsrook-externals/)
+_`whatsrook-externals` is the official suite of standalone external plugins for [WhatsRook](https://github.com/Thruqe/whatsrook), built in Rust using [`whatsrook-sdk`](https://crates.io/crates/whatsrook-sdk)._
+
+[![CI](https://github.com/Thruqe/whatsrook-externals/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/Thruqe/whatsrook-externals/actions/workflows/ci.yml)
+[![Website](https://img.shields.io/website?url=https%3A%2F%2Fthruqe.github.io%2Fwhatsrook-externals%2F)](https://thruqe.github.io/whatsrook-externals/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Official suite of standalone, high-performance external plugins for **[WhatsRook](https://github.com/Thruqe/whatsrook)** written in Rust.
+## Installation
 
-External plugins run as isolated child processes, communicating with WhatsRook via JSON over `stdin` and returning replies over `stdout`. They do not require recompilation of WhatsRook and can be installed, updated, or removed dynamically at runtime via WhatsApp commands.
-
----
-
-## Instant Installation via WhatsApp
-
-With WhatsRook's platform-aware installer, simply run:
+With WhatsRook's platform-aware installer, run from any WhatsApp chat:
 
 ```text
 .install <plugin>
 ```
 
-To install all official plugins at once:
+To install every official plugin in one go:
 
 ```text
 .install all
 ```
 
-For complete installation methods (prebuilt binaries, custom URLs, and building from source), see the **[Installation Guide](docs/installation.md)**.
+For prebuilt binaries, custom URLs, and building from source, see the [Installation Guide](https://thruqe.github.io/whatsrook-externals/installation/).
 
----
+## Plugins
 
-## Available Plugins (26)
+| Command | Plugin | Category | Description |
+| :--- | :--- | :--- | :--- |
+| `.weather` | `weather` | Utility | Real-time weather forecasts by city or coordinates |
+| `.urban` | `urban` | Reference | Urban Dictionary definitions, examples, and votes |
+| `.shorturl` | `shorturl` | Utility | URL shortener via TinyURL and is.gd |
+| `.calc` | `calc` | Math | High-precision mathematical and scientific expression evaluator |
+| `.fact` | `fact` | Fun | Random interesting facts with offline fallbacks |
+| `.quotes` | `quotes` | Fun | Inspirational quotes and attributed authors |
+| `.joke` | `joke` | Fun | Clean, witty jokes and punchlines |
+| `.rizz` | `rizz` | Fun | Modern pickup lines and charismatic phrases |
+| `.btc` | `btc` | Finance | Live Bitcoin price, 24h change, and halving countdown |
+| `.markets` | `markets` | Finance | Forex, crypto, commodity, and index rates |
+| `.news` | `news` | Media | AP News top headlines by country code |
+| `.wabeta` | `wabeta` | WhatsApp | WhatsApp beta feature leaks from WABetaInfo |
+| `.why` | `why` | AI | AI-powered deep search and reasoning from Why.com |
+| `.ss` | `ss` | Utility | Full-page webpage screenshot capture |
+| `.tts` | `tts` | Media | Google Text-to-Speech audio notes |
+| `.qrcode` | `qrcode` | Utility | High-resolution QR code generator |
+| `.fancy` | `fancy` | Styling | Converts text into 20+ decorative Unicode fonts |
+| `.font` | `font` | Styling | Renders text in a specific numbered Unicode font |
+| `.fonts` | `fonts` | Styling | Directory and visual samples of all font styles |
+| `.git` | `git` | Developer | GitHub repo explorer, commits, releases, and ZIP downloads |
+| `.mp4url` | `mp4url` | Media | Downloads and streams video from direct MP4 URLs |
+| `.cpu` | `cpu` | System | Host CPU model, cores, threads, and load |
+| `.memory` | `memory` | System | Host RAM usage and available memory |
+| `.captcha` | `captcha` | Utility | Animated dial verification code video captchas |
+| `.sticker` | `sticker` | Media | Converts media to a letterboxed 512×512 WebP sticker |
+| `.circle` | `circle` | Media | Converts media to a circular-masked WebP sticker |
+| `.crop` | `crop` | Media | Converts media to a square-cropped WebP sticker |
+| `.take` | `take` | Media | Re-packs sticker metadata — author and pack name |
+| `.media` | `media` | Media | Video/audio converter, audio extractor, and trimmer |
 
-| Plugin | Command | Description |
-| :--- | :--- | :--- |
-| **weather** | `.weather <city>` | Real-time weather forecasts |
-| **calc** | `.calc <expr>` | Mathematical and scientific calculation |
-| **urban** | `.urban <term>` | Urban Dictionary slang definitions |
-| **shorturl** | `.shorturl <url>` | Fast URL shortening |
-| **btc** | `.btc` | Live Bitcoin price and metrics |
-| **markets** | `.markets <pair>` | Forex, crypto, and stock market rates |
-| **news** | `.news [country]` | AP News top headlines |
-| **wabeta** | `.wabeta` | WhatsApp beta news and feature breakdowns |
-| **why** | `.why <prompt>` | AI deep search and reasoning from Why.com |
-| **ss** | `.ss <url>` | Full webpage screenshot capture |
-| **tts** | `.tts <lang> <text>` | Google Text-To-Speech audio |
-| **qrcode** | `.qrcode <data>` | High-resolution QR code generator |
-| **fancy** | `.fancy <text>` | 20+ decorative Unicode fonts |
-| **git** | `.git <owner/repo>` | GitHub repository explorer and ZIP downloads |
-| **cpu** | `.cpu` | Host CPU specifications and load |
-| **memory** | `.memory` | Host RAM and memory usage |
-| **media** | `.media` | Video/audio converter, trimmer, and extractor |
-| **sticker** | `.sticker` | Custom WebP sticker creator |
-| **captcha** | `.captcha` | Dial verification code video generator |
-| *...and more* | | [View complete plugin list & usage](docs/plugins.md) |
-
----
-
-## Documentation
-
-Comprehensive documentation is available in the **[`docs/`](docs/)** directory and on the **[Documentation Website](https://thruqe.github.io/whatsrook-externals/)**:
-
-- 📖 **[Installation Guide](docs/installation.md)** - 1-Click install, prebuilt archives, manual binary setups, and compilation.
-- 🔌 **[Plugin Reference](docs/plugins.md)** - Detailed commands, syntax, and examples for all 26 plugins.
-- 🛠️ **[SDK & Plugin Development](docs/sdk.md)** - Writing your own external plugins in Rust using `whatsrook-sdk`.
-
----
+Full usage examples and command reference: [Plugin Catalog](https://thruqe.github.io/whatsrook-externals/plugins/)
 
 ## Building from Source
 
@@ -73,8 +66,16 @@ cd whatsrook-externals
 cargo build --release --workspace
 ```
 
----
+Requires Rust stable (1.85+) and `ffmpeg` on `PATH` for media and sticker plugins.
 
-## License
+## Contributions
 
-MIT License. Copyright (c) 2026 Thruqe.
+If you want to help make this project better, please read the [contribution guide](https://thruqe.github.io/whatsrook-externals/) and [fork](https://github.com/Thruqe/whatsrook-externals/fork) this repository. Then open a pull request with your changes.
+
+## Acknowledgements
+
+whatsrook-externals is part of the [WhatsRook](https://github.com/Thruqe/whatsrook) ecosystem. All plugins are built with [`whatsrook-sdk`](https://crates.io/crates/whatsrook-sdk) — the official Rust SDK for external plugin development.
+
+## Licensing
+
+This project is open source, see the [LICENSE](./LICENSE) file for full details.

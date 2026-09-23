@@ -8,4 +8,4 @@ repository.workspace = true
 description = "WhatsRook external plugin for displaying host CPU metrics and load averages"
 
 [dependencies]
-whatsrook-sdk = { path = "../whatsrook-sdk" }
+whatsrook-sdk.workspace = true

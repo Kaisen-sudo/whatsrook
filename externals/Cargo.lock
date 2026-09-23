@@ -132,6 +132,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "circle"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.8",
+ "serde_json",
+ "whatsrook-sdk",
+]
+
+[[package]]
 name = "cpu"
 version = "0.1.0"
 dependencies = [
@@ -154,6 +163,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8498c871161e1742aaa9d52551b2d6ebdd4c3d45a3be423e3728f33b955be550"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "crop"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.8",
+ "serde_json",
+ "whatsrook-sdk",
 ]
 
 [[package]]
@@ -1216,6 +1234,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "take"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "whatsrook-sdk",
+]
+
+[[package]]
 name = "thiserror"
 version = "2.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1554,6 +1580,8 @@ dependencies = [
 [[package]]
 name = "whatsrook-sdk"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7e86eba06d164d36321577807304d2fbdf376e7a2c3719227501952ae480826"
 dependencies = [
  "reqwest",
  "serde",

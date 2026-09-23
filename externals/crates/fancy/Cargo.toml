@@ -8,4 +8,4 @@ repository.workspace = true
 description = "WhatsRook external plugin for converting text to fancy Unicode font styles"
 
 [dependencies]
-whatsrook-sdk = { path = "../whatsrook-sdk" }
+whatsrook-sdk.workspace = true

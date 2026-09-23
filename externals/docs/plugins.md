@@ -1,6 +1,6 @@
 # Plugin Reference Catalog
 
-This reference covers all 26 official external plugins included in the workspace.
+This reference covers all 29 official external plugins included in the workspace.
 
 ---
 
@@ -30,7 +30,10 @@ This reference covers all 26 official external plugins included in the workspace
 | `.cpu` | `cpu` | System | Host CPU model, core architecture, active threads, and load |
 | `.memory` | `memory` | System | Host RAM usage, available memory, and system resource metrics |
 | `.captcha` | `captcha` | Utility | Generates animated dial verification code video captchas |
-| `.sticker` | `sticker` | Media | Converts images/videos into custom WebP stickers with metadata |
+| `.sticker` | `sticker` | Media | Converts images/videos into letterboxed 512×512 WebP stickers |
+| `.circle` | `circle` | Media | Converts images/videos into circular-masked WebP stickers |
+| `.crop` | `crop` | Media | Converts images/videos into square-cropped WebP stickers |
+| `.take` | `take` | Media | Re-packs sticker metadata — author name and pack name |
 | `.media` | `media` | Media | Video/audio format converter, audio extractor, and trimmer |
 
 ---
@@ -80,4 +83,15 @@ Inspect repositories or download releases:
 ```text
 .git thruqe/whatsrook
 .git torvalds/linux
+```
+
+### Sticker Plugins (`.sticker`, `.circle`, `.crop`, `.take`)
+Reply to any image or video with the desired command:
+```text
+.sticker                    → letterboxed 512×512 sticker
+.sticker Author | Pack      → sticker with custom metadata
+.circle                     → circular-masked sticker
+.crop                       → square-cropped sticker
+.take                       → re-pack a quoted sticker's metadata
+.take Author | Pack         → re-pack with specific author and pack name
 ```

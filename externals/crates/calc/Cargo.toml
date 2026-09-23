@@ -8,4 +8,4 @@ repository.workspace = true
 description = "WhatsRook external plugin for mathematical expression calculations"
 
 [dependencies]
-whatsrook-sdk = { path = "../whatsrook-sdk" }
+whatsrook-sdk.workspace = true

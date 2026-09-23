@@ -1,12 +1,12 @@
 # Plugin Development with `whatsrook-sdk`
 
-The `whatsrook-sdk` crate makes it straightforward to author custom external plugins for WhatsRook using Rust.
+The [`whatsrook-sdk`](https://crates.io/crates/whatsrook-sdk) crate makes it straightforward to author custom external plugins for WhatsRook using Rust.
 
 ---
 
 ## Architecture: IPC Over Stdin/Stdout
 
-When WhatsRook triggers an external plugin, it starts the executable and writes a JSON payload to its `stdin`:
+When WhatsRook triggers an external plugin, it spawns the binary as a child process and writes a JSON payload to its `stdin`:
 
 ```json
 {
@@ -15,74 +15,86 @@ When WhatsRook triggers an external plugin, it starts the executable and writes 
   "sender": "1234567890@s.whatsapp.net",
   "chat": "1234567890@s.whatsapp.net",
   "is_group": false,
-  "raw_message": { ... }
+  "bot_name": "WhatsRook",
+  "prefix": ".",
+  "raw_args": "hello world"
 }
 ```
 
-The plugin processes the input and writes a response payload to `stdout`:
+The plugin processes the input and writes a response to `stdout`. Simple plugins use plain-text output; live/media plugins write structured JSON action frames.
 
-```json
-{
-  "type": "text",
-  "text": "Response from my plugin!"
-}
+```text
+WhatsRook  ──stdin──▶  plugin (reads Request JSON)
+plugin     ──stdout─▶  WhatsRook (reads text or Action frames)
+WhatsRook  ──stdin──▶  plugin (sends Ack for live actions)
 ```
 
 ---
 
 ## Quick Tutorial: Creating a Custom Plugin
 
-### 1. Initialize Crate
-Create a new binary crate in your workspace:
+### 1. Initialize a new crate
 
 ```bash
 cargo new --bin myplugin
 cd myplugin
 ```
 
-### 2. Configure `Cargo.toml`
-Add `whatsrook-sdk` as a dependency:
+### 2. Add the SDK to `Cargo.toml`
 
 ```toml
-[package]
-name = "myplugin"
-version = "0.1.0"
-edition = "2021"
-
 [dependencies]
-whatsrook-sdk = { path = "../whatsrook-sdk" }
+whatsrook-sdk = "0.1"
 ```
 
-### 3. Write Plugin Logic
-In `src/main.rs`:
+### 3. Write plugin logic
 
 ```rust
 use whatsrook_sdk::{respond, Request};
 
 fn main() {
-    // Load incoming request from stdin
     let req = Request::load();
     let query = req.query();
 
     if query.is_empty() {
-        respond("Usage: .mycommand <query>");
+        respond(format!("Usage: {}mycommand <query>", req.prefix()));
         return;
     }
 
-    // Process input and respond back to WhatsApp
-    let reply = format!("Received query: {}", query);
-    respond(reply);
+    respond(format!("Received: {}", query));
 }
 ```
 
-### 4. Build and Install
-Compile your plugin in release mode:
+### 4. Build and install
 
 ```bash
 cargo build --release
+.install mycommand /path/to/target/release/myplugin
 ```
 
-Install it into WhatsRook via WhatsApp:
-```text
-.install mycommand /path/to/myplugin/target/release/myplugin
-```
+---
+
+## Action Reference
+
+| Action | Helper | Description |
+| :--- | :--- | :--- |
+| `reply` | `send_reply_live(text)` | Send text, returns `msg_id` for edits |
+| `edit` | `send_edit_live(id, text)` | In-place message edit |
+| `react` | `send_react(emoji)` | Emoji reaction on the triggering message |
+| `delete` | `send_delete(id)` | Revoke a message for everyone |
+| `send_image` | `send_image(data, caption)` | Image from URL or base64 |
+| `send_audio` | `send_audio(data, ptt)` | Audio or voice note |
+| `send_video` | `send_video(data, caption)` | Video; `send_gif` for looping GIF |
+| `send_document` | `send_document(data, name, caption)` | File attachment |
+| `send_sticker` | `send_sticker(data)` | WebP sticker |
+| `poll` | `send_poll(question, options)` | Interactive poll |
+| `loader` | `send_loader(text)` | Typing / processing indicator |
+| `done` | `send_done()` | End the live session |
+
+For simple single-reply plugins, use `respond(text)` — no JSON framing needed.
+
+---
+
+## Full SDK Documentation
+
+→ [docs.rs/whatsrook-sdk](https://docs.rs/whatsrook-sdk)

@@ -8,6 +8,6 @@ repository.workspace = true
 description = "WhatsRook external plugin for WABetaInfo WhatsApp beta updates"
 
 [dependencies]
-whatsrook-sdk = { path = "../whatsrook-sdk" }
+whatsrook-sdk.workspace = true
 regex = "1.11"
 html-escape = "0.2"
