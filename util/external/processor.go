@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 	"whatsrook/util/logger"
@@ -28,7 +30,34 @@ func (d *Dispatcher) runProcess(plugCtx *whatsrook.PluginContext, path, name str
 
 	sessionKey := d.sessionKey(request.Chat, name)
 
-	cmd := exec.CommandContext(liveCtx, path)
+	var cmdArgs []string
+	var tempOutputFile string
+
+	if request.Media != nil && request.Media.Path != "" {
+		cmdArgs = append(cmdArgs, request.Media.Path)
+		outExt := ".bin"
+		switch strings.ToLower(name) {
+		case "sticker", "circle", "crop", "take":
+			outExt = ".webp"
+		case "mp3":
+			outExt = ".mp3"
+		case "media", "mp4", "black", "trim":
+			outExt = ".mp4"
+		default:
+			outExt = ".webp"
+		}
+		if tmpOut, err := os.CreateTemp("", "whatsrook_out_*"+outExt); err == nil {
+			tempOutputFile = tmpOut.Name()
+			_ = tmpOut.Close()
+			cmdArgs = append(cmdArgs, tempOutputFile)
+		}
+	}
+
+	if tempOutputFile != "" {
+		defer os.Remove(tempOutputFile)
+	}
+
+	cmd := exec.CommandContext(liveCtx, path, cmdArgs...)
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
 		logger.Error("external plugin stdout pipe failed", "plugin", name, "err", err)
@@ -49,9 +78,17 @@ func (d *Dispatcher) runProcess(plugCtx *whatsrook.PluginContext, path, name str
 	// Register live session for cancel command handling
 	d.registerSession(sessionKey, liveCancel, name)
 
+	var waited bool
+	waitCmd := func() {
+		if !waited {
+			waited = true
+			_ = cmd.Wait()
+		}
+	}
+
 	defer func() {
 		_ = stdinPipe.Close()
-		_ = cmd.Wait()
+		waitCmd()
 		d.unregisterSession(sessionKey)
 	}()
 
@@ -91,6 +128,13 @@ func (d *Dispatcher) runProcess(plugCtx *whatsrook.PluginContext, path, name str
 								break
 							}
 						}
+
+						waitCmd()
+
+						if tryDeliverOutputFile(plugCtx, name, tempOutputFile) {
+							break
+						}
+
 						response := strings.TrimSpace(sb.String())
 						if response != "" {
 							_ = plugCtx.Reply(response)
@@ -113,6 +157,37 @@ func (d *Dispatcher) runProcess(plugCtx *whatsrook.PluginContext, path, name str
 			}
 			break
 		}
+	}
+
+	waitCmd()
+	if !isStreaming && !readFirst {
+		tryDeliverOutputFile(plugCtx, name, tempOutputFile)
+	}
+}
+
+func tryDeliverOutputFile(plugCtx *whatsrook.PluginContext, name, tempOutputFile string) bool {
+	if tempOutputFile == "" {
+		return false
+	}
+	stat, err := os.Stat(tempOutputFile)
+	if err != nil || stat.Size() == 0 {
+		return false
+	}
+	outBytes, err := os.ReadFile(tempOutputFile)
+	if err != nil || len(outBytes) == 0 {
+		return false
+	}
+
+	nameLower := strings.ToLower(name)
+	switch {
+	case strings.HasSuffix(tempOutputFile, ".webp") || nameLower == "sticker" || nameLower == "circle" || nameLower == "crop" || nameLower == "take":
+		return plugCtx.ReplyWithSticker(outBytes) == nil
+	case strings.HasSuffix(tempOutputFile, ".mp4") || nameLower == "mp4" || nameLower == "media" || nameLower == "black":
+		return plugCtx.ReplyWithVideo(outBytes, "video/mp4", "") == nil
+	case strings.HasSuffix(tempOutputFile, ".mp3") || nameLower == "mp3":
+		return plugCtx.ReplyWithAudio(outBytes, "audio/mpeg") == nil
+	default:
+		return plugCtx.ReplyWithDocument(outBytes, "application/octet-stream", filepath.Base(tempOutputFile), "") == nil
 	}
 }
 
