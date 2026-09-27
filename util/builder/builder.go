@@ -86,6 +86,30 @@ func (r *Response) Audio(data []byte, mimetype string) error {
 	return r.sender.SendAudio(data, mimetype)
 }
 
+// ReplyWithAudio uploads and sends an audio message quoted to the triggering message.
+func (r *Response) ReplyWithAudio(data []byte, mimetype string) error {
+	if r.sender == nil {
+		return nil
+	}
+	return r.sender.ReplyWithAudio(data, mimetype)
+}
+
+// Video uploads and sends a video message.
+func (r *Response) Video(data []byte, mimetype, caption string) error {
+	if r.sender == nil {
+		return nil
+	}
+	return r.sender.SendVideo(data, mimetype, caption)
+}
+
+// ReplyWithVideo uploads and sends a video message quoted to the triggering message.
+func (r *Response) ReplyWithVideo(data []byte, mimetype, caption string) error {
+	if r.sender == nil {
+		return nil
+	}
+	return r.sender.ReplyWithVideo(data, mimetype, caption)
+}
+
 // Document uploads and sends a document file.
 func (r *Response) Document(data []byte, filename, mimetype string) error {
 	if r.sender == nil {
@@ -109,6 +133,11 @@ func (r *Response) Delete(msgID types.MessageID) error {
 	}
 	_, err := r.sender.Delete(msgID)
 	return err
+}
+
+// Sender returns the underlying Sender instance.
+func (r *Response) Sender() Sender {
+	return r.sender
 }
 
 // Rook returns a new WARook bound to the same context, enabling chained
