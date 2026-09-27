@@ -37,7 +37,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Thruqe"]
 license = "MIT"
-repository = "https://github.com/Thruqe/whatsrook-externals"
+repository = "https://github.com/thruqe/whatsapp-go"
 keywords = ["whatsrook", "plugins", "whatsapp", "bot", "cli"]
 
 [workspace.dependencies]

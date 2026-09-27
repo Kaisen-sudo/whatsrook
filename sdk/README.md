@@ -1,10 +1,10 @@
 ![whatsrook](./assets/logo.svg)
 
-_`whatsrook-sdk` is a Rust library for building external plugins that run inside [WhatsRook](https://github.com/Thruqe/whatsrook) — with full access to the WhatsApp action protocol._
+_`whatsrook-sdk` is a Rust library for building external plugins that run inside [WhatsRook](https://github.com/thruqe/whatsapp-go) — with full access to the WhatsApp action protocol._
 
 [![crates.io](https://img.shields.io/crates/v/whatsrook-sdk)](https://crates.io/crates/whatsrook-sdk)
 [![docs.rs](https://img.shields.io/docsrs/whatsrook-sdk)](https://docs.rs/whatsrook-sdk)
-[![CI](https://github.com/Thruqe/whatsrook-sdk/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Thruqe/whatsrook-sdk/actions/workflows/ci.yml)
+[![CI](https://github.com/thruqe/whatsapp-go/actions/workflows/sdk-ci.yml/badge.svg?branch=master)](https://github.com/thruqe/whatsapp-go/actions/workflows/sdk-ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ## Usage
@@ -16,7 +16,7 @@ Add `whatsrook-sdk` to your `Cargo.toml`:
 whatsrook-sdk = "0.1"
 ```
 
-External plugins are standalone binaries. WhatsRook spawns them as child processes, writes a JSON request payload to `stdin`, and reads newline-delimited JSON action frames from `stdout`. See [How It Works](#how-it-works) for the full protocol, and the [Plugin Development Guide](https://github.com/Thruqe/whatsrook/blob/master/EXTERNAL_PLUGIN.md) for installation and deployment.
+External plugins are standalone binaries. WhatsRook spawns them as child processes, writes a JSON request payload to `stdin`, and reads newline-delimited JSON action frames from `stdout`. See [How It Works](#how-it-works) for the full protocol, and the [Plugin Development Guide](../EXTERNAL_PLUGIN.md) for installation and deployment.
 
 ## Features
 

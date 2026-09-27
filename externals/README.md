@@ -1,9 +1,8 @@
 ![whatsrook](./assets/logo.svg)
 
-_`whatsrook-externals` is the official suite of standalone external plugins for [WhatsRook](https://github.com/Thruqe/whatsrook), built in Rust using [`whatsrook-sdk`](https://crates.io/crates/whatsrook-sdk)._
+_`whatsrook-externals` is the official suite of standalone external plugins for [WhatsRook](https://github.com/thruqe/whatsapp-go), built in Rust using [`whatsrook-sdk`](../sdk)._
 
-[![CI](https://github.com/Thruqe/whatsrook-externals/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/Thruqe/whatsrook-externals/actions/workflows/ci.yml)
-[![Website](https://img.shields.io/website?url=https%3A%2F%2Fthruqe.github.io%2Fwhatsrook-externals%2F)](https://thruqe.github.io/whatsrook-externals/)
+[![CI](https://github.com/thruqe/whatsapp-go/actions/workflows/externals-ci.yml/badge.svg?branch=master)](https://github.com/thruqe/whatsapp-go/actions/workflows/externals-ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ## Installation
@@ -20,7 +19,7 @@ To install every official plugin in one go:
 .install all
 ```
 
-For prebuilt binaries, custom URLs, and building from source, see the [Installation Guide](https://thruqe.github.io/whatsrook-externals/installation/).
+For prebuilt binaries, custom URLs, and building from source, see the [External Plugins Guide](../EXTERNAL_PLUGIN.md).
 
 ## Plugins
 
@@ -56,36 +55,39 @@ For prebuilt binaries, custom URLs, and building from source, see the [Installat
 | `.take` | `take` | Media | Re-packs sticker metadata — author and pack name |
 | `.media` | `media` | Media | Video/audio converter, audio extractor, and trimmer |
 
-Full usage examples and command reference: [Plugin Catalog](https://thruqe.github.io/whatsrook-externals/plugins/)
+Full usage examples and command reference: [External Plugins Guide](../EXTERNAL_PLUGIN.md)
 
 ## Documentation
 
-Explore the complete documentation website at [thruqe.github.io/whatsrook-externals](https://thruqe.github.io/whatsrook-externals/):
+Full architectural documentation and usage instructions are available in [EXTERNAL_PLUGIN.md](../EXTERNAL_PLUGIN.md):
 
-- 📖 [**Overview**](https://thruqe.github.io/whatsrook-externals/) &mdash; High-level features, advantages, and ecosystem comparison.
-- 📦 [**Installation Guide**](https://thruqe.github.io/whatsrook-externals/installation/) &mdash; WhatsApp 1-click install, prebuilt platform archives, Docker, and source compilation.
-- 🔄 [**Architecture & Protocol**](https://thruqe.github.io/whatsrook-externals/protocol/) &mdash; Stdin/stdout NDJSON wire protocol, Request schema, Action frames, and ACK loops.
-- 🧩 [**Plugin Catalog**](https://thruqe.github.io/whatsrook-externals/plugins/) &mdash; Deep technical reference and live previews for all 29 official plugins.
-- 🛠️ [**SDK & Development Guide**](https://thruqe.github.io/whatsrook-externals/sdk/) &mdash; Build custom plugins with `whatsrook-sdk` in Rust.
-- 🔍 [**Troubleshooting & FAQ**](https://thruqe.github.io/whatsrook-externals/troubleshooting/) &mdash; Resolving permissions, FFmpeg setup, timeouts, and CLI debugging.
+- 📖 **Architecture & Protocol** &mdash; Stdin/stdout NDJSON wire protocol, Request schema, Action frames, and ACK loops.
+- 📦 **Installation Guide** &mdash; WhatsApp 1-click install (`.install <name>`), custom URLs, and local binaries.
+- 🧩 **Plugin Catalog** &mdash; Command reference for all official plugins.
+- 🛠️ [**Rust SDK**](../sdk) &mdash; Build custom plugins with `whatsrook-sdk` in Rust.
 
 ## Building from Source
 
 ```bash
-git clone https://github.com/Thruqe/whatsrook-externals.git
-cd whatsrook-externals
+cd externals
 cargo build --release --workspace
+```
+
+Or from the monorepo root:
+
+```bash
+task build:externals
 ```
 
 Requires Rust stable (1.85+) and `ffmpeg` on `PATH` for media and sticker plugins.
 
 ## Contributions
 
-If you want to help make this project better, please read the [contribution guide](https://thruqe.github.io/whatsrook-externals/) and [fork](https://github.com/Thruqe/whatsrook-externals/fork) this repository. Then open a pull request with your changes.
+Contributions follow the monorepo [Contributing Guidelines](../CONTRIBUTING.md) and [Architecture Guidelines](../AGENTS.md).
 
 ## Acknowledgements
 
-whatsrook-externals is part of the [WhatsRook](https://github.com/Thruqe/whatsrook) ecosystem. All plugins are built with [`whatsrook-sdk`](https://crates.io/crates/whatsrook-sdk) — the official Rust SDK for external plugin development.
+whatsrook-externals is part of the [WhatsRook](https://github.com/thruqe/whatsapp-go) ecosystem. All plugins are built with [`whatsrook-sdk`](../sdk).
 
 ## Licensing
 

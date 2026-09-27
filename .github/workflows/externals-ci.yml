@@ -1,15 +1,27 @@
-name: CI
+name: Externals CI
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [master]
+    paths:
+      - "externals/**"
+      - "sdk/**"
+      - ".github/workflows/externals-ci.yml"
   pull_request:
-    branches: [ master, main ]
+    branches: [master]
+    paths:
+      - "externals/**"
+      - "sdk/**"
+      - ".github/workflows/externals-ci.yml"
+  workflow_dispatch:
 
 jobs:
   check:
     name: Check & Build
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: externals
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -21,6 +33,8 @@ jobs:
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: externals -> target
 
       - name: Check code formatting
         run: cargo fmt --all -- --check

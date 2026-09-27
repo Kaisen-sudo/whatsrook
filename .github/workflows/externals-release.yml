@@ -1,12 +1,9 @@
-name: Release
+name: Externals Release
 
 on:
   push:
-    branches:
-      - master
-      - main
     tags:
-      - 'v*'
+      - 'externals-v*'
   workflow_dispatch:
     inputs:
       tag_name:
@@ -46,6 +43,10 @@ jobs:
             name: windows-amd64
             cross: false
 
+    defaults:
+      run:
+        working-directory: externals
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -72,7 +73,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          CRATES=("weather" "urban" "shorturl" "calc" "fact" "quotes" "joke" "rizz" "btc" "markets" "news" "wabeta" "why" "ss" "tts" "qrcode" "fancy" "font" "fonts" "git" "mp4url" "cpu" "memory" "captcha" "sticker" "media")
+          CRATES=("btc" "calc" "captcha" "circle" "cpu" "crop" "fact" "fancy" "font" "fonts" "git" "joke" "markets" "media" "memory" "mp4url" "news" "qrcode" "quotes" "rizz" "shorturl" "ss" "sticker" "take" "tts" "urban" "wabeta" "weather" "why")
           
           if [[ "${{ matrix.target }}" == *"windows"* ]]; then
             EXE_EXT=".exe"
@@ -105,7 +106,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.name }}
-          path: dist/*
+          path: externals/dist/*
           if-no-files-found: error
 
   release:
@@ -130,7 +131,7 @@ jobs:
           elif [ "${{ github.ref_type }}" = "tag" ]; then
             echo "name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           else
-            echo "name=v0.1.0" >> $GITHUB_OUTPUT
+            echo "name=latest" >> $GITHUB_OUTPUT
           fi
 
       - name: Publish GitHub Release
@@ -139,11 +140,12 @@ jobs:
         run: |
           TAG="${{ steps.tag.outputs.name }}"
           echo "Publishing automated release for tag: $TAG"
-          # If an existing release or draft exists, delete it first to ensure clean state
-          gh release delete "$TAG" --yes || true
-          # Create and publish full public release with all packaged binaries, marked as latest
-          gh release create "$TAG" release-assets/* \
-            --title "WhatsRook External Plugins ($TAG)" \
-            --notes "Automated continuous release build from commit \`${{ github.sha }}\` on $(date -u +'%Y-%m-%d %H:%M:%S UTC')." \
-            --latest \
-            --target "${{ github.sha }}"
+          # If the release exists, upload assets to it; otherwise create it
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" release-assets/* --clobber
+          else
+            gh release create "$TAG" release-assets/* \
+              --title "WhatsRook External Plugins ($TAG)" \
+              --notes "Automated external plugin release build from commit \`${{ github.sha }}\` on $(date -u +'%Y-%m-%d %H:%M:%S UTC')." \
+              --target "${{ github.sha }}"
+          fi

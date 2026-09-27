@@ -1,10 +1,17 @@
-name: CI
+name: SDK CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
+    paths:
+      - "sdk/**"
+      - ".github/workflows/sdk-ci.yml"
   pull_request:
-    branches: [main]
+    branches: [master]
+    paths:
+      - "sdk/**"
+      - ".github/workflows/sdk-ci.yml"
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
@@ -18,6 +25,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+
+    defaults:
+      run:
+        working-directory: sdk
 
     steps:
       - uses: actions/checkout@v4
@@ -33,9 +44,9 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
+            sdk/target
+          key: ${{ runner.os }}-cargo-sdk-${{ hashFiles('sdk/**/Cargo.lock', 'sdk/**/Cargo.toml') }}
+          restore-keys: ${{ runner.os }}-cargo-sdk-
 
       - name: Format check
         run: cargo fmt --all -- --check
