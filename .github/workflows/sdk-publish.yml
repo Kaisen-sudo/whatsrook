@@ -81,4 +81,4 @@ jobs:
             || echo "Tag already on remote — skipping push."
 
       - name: Publish to crates.io
-        run: cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish --token ${{ secrets.SDK_KEY || secrets.CARGO_REGISTRY_TOKEN }}
