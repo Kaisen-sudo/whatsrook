@@ -43,6 +43,8 @@ tasks:
       - command -v staticcheck >/dev/null 2>&1 && staticcheck ./... || ([ -x "$(go env GOPATH)/bin/staticcheck" ] && "$(go env GOPATH)/bin/staticcheck" ./...) || true
       - cd lib && (command -v staticcheck >/dev/null 2>&1 && staticcheck ./... || ([ -x "$(go env GOPATH)/bin/staticcheck" ] && "$(go env GOPATH)/bin/staticcheck" ./...) || true)
       - cd cmd && (command -v staticcheck >/dev/null 2>&1 && staticcheck ./... || ([ -x "$(go env GOPATH)/bin/staticcheck" ] && "$(go env GOPATH)/bin/staticcheck" ./...) || true)
+      - cd sdk && (command -v cargo >/dev/null 2>&1 && cargo fmt --all || true)
+      - cd externals && (command -v cargo >/dev/null 2>&1 && cargo fmt --all || true)
 
   deadcode:
     desc: Analyze unreachable functions across the codebase
@@ -57,6 +59,8 @@ tasks:
         if [ -n "$PKGS" ]; then go test -v -timeout 120s $PKGS; fi
       - cd lib && go test -v -timeout 60s ./...
       - cd cmd && go test -v -timeout 60s ./...
+      - cd sdk && (command -v cargo >/dev/null 2>&1 && cargo test || true)
+      - cd externals && (command -v cargo >/dev/null 2>&1 && cargo test || true)
 
   update:
     desc: Upgrade all Go dependencies
@@ -101,6 +105,16 @@ tasks:
       - cmd: go -C scripts run . res
         platforms: [windows]
       - cd cmd && go build -trimpath -ldflags="-s -w -buildid=" -v -o ../{{.BIN_PATH}} .
+
+  build:externals:
+    desc: Build all Rust external plugin binaries
+    cmds:
+      - cd externals && cargo build --release
+
+  build:web:
+    desc: Build static web session generator application
+    cmds:
+      - cd web && bun run build
 
   clean:
     desc: Remove build artifacts and temporary files
