@@ -2103,8 +2103,8 @@ func GetAllPlatformCookiesMerged(ctx context.Context, s *sqlstore.SQLStore) (str
 	var sb strings.Builder
 	sb.WriteString("# Netscape HTTP Cookie File\n# Merged yt-dlp cookies for all configured platforms\n\n")
 	for _, pc := range cookiesList {
-		lines := strings.Split(pc.Cookies, "\n")
-		for _, line := range lines {
+		lines := strings.SplitSeq(pc.Cookies, "\n")
+		for line := range lines {
 			line = strings.TrimSpace(line)
 			if line == "" || strings.HasPrefix(line, "# Netscape HTTP Cookie") {
 				continue

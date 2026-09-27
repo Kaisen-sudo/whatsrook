@@ -492,7 +492,7 @@ func reportCookieStatus(ctx *dispatch.Context) error {
 		if list, err := s.ListPlatformCookies(ctx.GetSendContext()); err == nil && len(list) > 0 {
 			for _, pc := range list {
 				count := 0
-				for _, line := range strings.Split(pc.Cookies, "\n") {
+				for line := range strings.SplitSeq(pc.Cookies, "\n") {
 					line = strings.TrimSpace(line)
 					if line != "" && !strings.HasPrefix(line, "#") {
 						count++

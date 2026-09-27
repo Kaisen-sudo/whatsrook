@@ -17,7 +17,6 @@ import (
 
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
-	"google.golang.org/protobuf/proto"
 
 	"whatsrook/cmd/dispatch"
 	"whatsrook/util/builder"
@@ -504,7 +503,7 @@ func sendOpusAudioPayload(ctx *dispatch.Context, audioBytes []byte) error {
 			Mimetype:      &mimetype,
 			FileEncSHA256: uploaded.FileEncSHA256,
 			FileSHA256:    uploaded.FileSHA256,
-			FileLength:    proto.Uint64(uint64(len(meta.Data))),
+			FileLength:    new(uint64(len(meta.Data))),
 			PTT:           &ptt,
 			Seconds:       &meta.Seconds,
 			Waveform:      meta.Waveform,
