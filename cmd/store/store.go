@@ -337,6 +337,7 @@ func getMigrations() []Migration {
 		{Version: 5, Description: "Repair call_media_config updated_at default and drop not-null constraint", Up: migration5RepairCallMediaDefaults},
 		{Version: 6, Description: "Add cached groups, communities, participants, and newsletters tables", Up: migration6CachedGroupsAndChannels},
 		{Version: 7, Description: "Scope all custom bot tables by our_jid for full per-session isolation in shared databases", Up: migration7SessionIsolation},
+		{Version: 8, Description: "Add bot_platform_cookies table for per-platform yt-dlp cookie management", Up: migration8PlatformCookies},
 	}
 }
 
@@ -699,6 +700,27 @@ func migration7SessionIsolation(ctx context.Context, db *dbutil.Database) error 
 		_, _ = db.Exec(ctx, "ALTER TABLE bot_sticker_cmds ADD PRIMARY KEY (our_jid, sticker_sha256)")
 	}
 
+	return nil
+}
+
+func migration8PlatformCookies(ctx context.Context, db *dbutil.Database) error {
+	schemas := []string{
+		`CREATE TABLE IF NOT EXISTS bot_platform_cookies (
+			our_jid     TEXT NOT NULL DEFAULT '',
+			platform    TEXT NOT NULL,
+			domain      TEXT NOT NULL DEFAULT '',
+			cookies     TEXT NOT NULL,
+			updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (our_jid, platform)
+		)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS bot_platform_cookies_our_jid_platform_idx ON bot_platform_cookies (our_jid, platform)`,
+	}
+
+	for _, s := range schemas {
+		if _, err := db.Exec(ctx, s); err != nil {
+			return fmt.Errorf("failed executing schema %q: %w", s, err)
+		}
+	}
 	return nil
 }
 
@@ -1936,4 +1958,160 @@ func LoadAllCachedNewsletters(ctx context.Context, db *dbutil.Database, ourJID s
 	}
 
 	return newsletters, nil
+}
+
+// BotPlatformCookie holds platform-specific cookies in Netscape format.
+type BotPlatformCookie struct {
+	OurJID    string    `json:"our_jid"`
+	Platform  string    `json:"platform"`
+	Domain    string    `json:"domain"`
+	Cookies   string    `json:"cookies"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func PutPlatformCookie(ctx context.Context, s *sqlstore.SQLStore, platform, domain, cookies string) error {
+	if s == nil {
+		return nil
+	}
+	ourJID := ourJIDStr(s)
+	platform = strings.ToLower(strings.TrimSpace(platform))
+	if platform == "" {
+		platform = "generic"
+	}
+
+	db, err := getDBFromStore(s)
+	if err != nil {
+		return err
+	}
+
+	query := `
+		INSERT INTO bot_platform_cookies (our_jid, platform, domain, cookies, updated_at)
+		VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+		ON CONFLICT (our_jid, platform) 
+		DO UPDATE SET domain = EXCLUDED.domain, cookies = EXCLUDED.cookies, updated_at = CURRENT_TIMESTAMP
+	`
+	_, err = db.Exec(ctx, query, ourJID, platform, domain, cookies)
+	return err
+}
+
+func GetPlatformCookie(ctx context.Context, s *sqlstore.SQLStore, platform string) (string, error) {
+	if s == nil {
+		return "", nil
+	}
+	ourJID := ourJIDStr(s)
+	platform = strings.ToLower(strings.TrimSpace(platform))
+
+	db, err := getDBFromStore(s)
+	if err != nil {
+		return "", err
+	}
+
+	var cookies string
+	query := `
+		SELECT cookies FROM bot_platform_cookies 
+		WHERE (our_jid = $1 OR our_jid = $2 OR our_jid = '' OR our_jid IS NULL) AND platform = $3
+		ORDER BY CASE WHEN our_jid = $1 THEN 1 WHEN our_jid = $2 THEN 2 ELSE 3 END 
+		LIMIT 1
+	`
+	err = db.QueryRow(ctx, query, ourJID, s.JID, platform).Scan(&cookies)
+	if err != nil {
+		return "", err
+	}
+	return cookies, nil
+}
+
+func DeletePlatformCookie(ctx context.Context, s *sqlstore.SQLStore, platform string) error {
+	if s == nil {
+		return nil
+	}
+	ourJID := ourJIDStr(s)
+	platform = strings.ToLower(strings.TrimSpace(platform))
+
+	db, err := getDBFromStore(s)
+	if err != nil {
+		return err
+	}
+
+	query := `DELETE FROM bot_platform_cookies WHERE (our_jid = $1 OR our_jid = $2) AND platform = $3`
+	_, err = db.Exec(ctx, query, ourJID, s.JID, platform)
+	return err
+}
+
+func DeleteAllPlatformCookies(ctx context.Context, s *sqlstore.SQLStore) error {
+	if s == nil {
+		return nil
+	}
+	ourJID := ourJIDStr(s)
+
+	db, err := getDBFromStore(s)
+	if err != nil {
+		return err
+	}
+
+	query := `DELETE FROM bot_platform_cookies WHERE our_jid = $1 OR our_jid = $2`
+	_, err = db.Exec(ctx, query, ourJID, s.JID)
+	return err
+}
+
+func ListPlatformCookies(ctx context.Context, s *sqlstore.SQLStore) ([]BotPlatformCookie, error) {
+	if s == nil {
+		return nil, nil
+	}
+	ourJID := ourJIDStr(s)
+
+	db, err := getDBFromStore(s)
+	if err != nil {
+		return nil, err
+	}
+
+	query := `
+		SELECT our_jid, platform, domain, cookies, updated_at
+		FROM bot_platform_cookies 
+		WHERE our_jid = $1 OR our_jid = $2 OR our_jid = '' OR our_jid IS NULL
+		ORDER BY platform ASC
+	`
+	rows, err := db.Query(ctx, query, ourJID, s.JID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []BotPlatformCookie
+	seen := make(map[string]bool)
+	for rows.Next() {
+		var item BotPlatformCookie
+		var updatedAt sql.NullTime
+		if err := rows.Scan(&item.OurJID, &item.Platform, &item.Domain, &item.Cookies, &updatedAt); err == nil {
+			if !seen[item.Platform] {
+				seen[item.Platform] = true
+				if updatedAt.Valid {
+					item.UpdatedAt = updatedAt.Time
+				}
+				result = append(result, item)
+			}
+		}
+	}
+	return result, nil
+}
+
+func GetAllPlatformCookiesMerged(ctx context.Context, s *sqlstore.SQLStore) (string, error) {
+	cookiesList, err := ListPlatformCookies(ctx, s)
+	if err != nil || len(cookiesList) == 0 {
+		return "", err
+	}
+
+	var sb strings.Builder
+	sb.WriteString("# Netscape HTTP Cookie File\n# Merged yt-dlp cookies for all configured platforms\n\n")
+	for _, pc := range cookiesList {
+		lines := strings.Split(pc.Cookies, "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "# Netscape HTTP Cookie") {
+				continue
+			}
+			sb.WriteString(line)
+			sb.WriteByte('\n')
+		}
+	}
+	return sb.String(), nil
 }

@@ -69,6 +69,54 @@ func (w *StoreWrapper) PutCallMediaConfig(ctx context.Context, jid types.JID, ki
 	return store.PutCallMediaConfig(ctx, w.SQLStore, jid, kind, filePath)
 }
 
+// PutPlatformCookie stores Netscape cookies for a specific platform.
+func (w *StoreWrapper) PutPlatformCookie(ctx context.Context, platform, domain, cookies string) error {
+	if w == nil || w.SQLStore == nil {
+		return nil
+	}
+	return store.PutPlatformCookie(ctx, w.SQLStore, platform, domain, cookies)
+}
+
+// GetPlatformCookie retrieves Netscape cookies for a specific platform.
+func (w *StoreWrapper) GetPlatformCookie(ctx context.Context, platform string) (string, error) {
+	if w == nil || w.SQLStore == nil {
+		return "", nil
+	}
+	return store.GetPlatformCookie(ctx, w.SQLStore, platform)
+}
+
+// DeletePlatformCookie deletes Netscape cookies for a specific platform.
+func (w *StoreWrapper) DeletePlatformCookie(ctx context.Context, platform string) error {
+	if w == nil || w.SQLStore == nil {
+		return nil
+	}
+	return store.DeletePlatformCookie(ctx, w.SQLStore, platform)
+}
+
+// DeleteAllPlatformCookies deletes all platform cookies.
+func (w *StoreWrapper) DeleteAllPlatformCookies(ctx context.Context) error {
+	if w == nil || w.SQLStore == nil {
+		return nil
+	}
+	return store.DeleteAllPlatformCookies(ctx, w.SQLStore)
+}
+
+// ListPlatformCookies returns all platform cookies configured for this session.
+func (w *StoreWrapper) ListPlatformCookies(ctx context.Context) ([]store.BotPlatformCookie, error) {
+	if w == nil || w.SQLStore == nil {
+		return nil, nil
+	}
+	return store.ListPlatformCookies(ctx, w.SQLStore)
+}
+
+// GetAllPlatformCookiesMerged returns all platform cookies combined into a single Netscape cookie file.
+func (w *StoreWrapper) GetAllPlatformCookiesMerged(ctx context.Context) (string, error) {
+	if w == nil || w.SQLStore == nil {
+		return "", nil
+	}
+	return store.GetAllPlatformCookiesMerged(ctx, w.SQLStore)
+}
+
 // GetSessionMediaDir returns the directory path for storing session media assets.
 func GetSessionMediaDir(client *whatsmeow.Client, subdirs ...string) string {
 	baseDir := "media"
