@@ -8,12 +8,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"whatsrook"
 	"whatsrook/cmd/dispatch"
 	"whatsrook/util/logger"
 
-	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"
 )
 
@@ -597,6 +597,12 @@ func extractContextFromQuotedMessage(ctx *dispatch.Context, data *Data) {
 		}
 	}
 
+	if quotedParticipant == "" && ctx.Evt != nil && ctx.Evt.Info.IsFromMe {
+		if !ctx.Sender.IsEmpty() {
+			quotedParticipant = ctx.Sender.ToNonAD().String()
+		}
+	}
+
 	if quotedParticipant != "" {
 		if quotedJID, err := types.ParseJID(quotedParticipant); err == nil {
 			quotedPNJID := quotedJID.ToNonAD()
@@ -634,7 +640,12 @@ func extractContextFromQuotedMessage(ctx *dispatch.Context, data *Data) {
 	case quotedMsg.GetImageMessage() != nil:
 		imgMsg := quotedMsg.GetImageMessage()
 		data.QuotedMessageType = "Image"
-		data.QuotedMessageOfQuestion = imgMsg.GetCaption()
+		caption := imgMsg.GetCaption()
+		if caption != "" {
+			data.QuotedMessageOfQuestion = dispatch.Sprintf("[Image message. Caption: %s]", caption)
+		} else {
+			data.QuotedMessageOfQuestion = "[Image message]"
+		}
 		mimetype := imgMsg.GetMimetype()
 		if mimetype == "" {
 			mimetype = "image/jpeg"
@@ -668,10 +679,27 @@ func extractContextFromQuotedMessage(ctx *dispatch.Context, data *Data) {
 		data.QuotedMessageType = "Document"
 		caption := docMsg.GetCaption()
 		filename := docMsg.GetFileName()
-		if filename != "" {
-			data.QuotedMessageOfQuestion = dispatch.Sprintf("File: %s. Caption: %s", filename, caption)
-		} else {
-			data.QuotedMessageOfQuestion = caption
+		if ctx.Client != nil {
+			if docData, err := ctx.Client.Download(ctx.Ctx, docMsg); err == nil && len(docData) > 0 && len(docData) <= 50*1024 {
+				if utf8.Valid(docData) {
+					content := string(docData)
+					if len(content) > 2000 {
+						content = content[:1997] + "..."
+					}
+					if filename != "" {
+						data.QuotedMessageOfQuestion = dispatch.Sprintf("File: %s\nContent:\n```\n%s\n```\nCaption: %s", filename, content, caption)
+					} else {
+						data.QuotedMessageOfQuestion = dispatch.Sprintf("Document Content:\n```\n%s\n```\nCaption: %s", content, caption)
+					}
+				}
+			}
+		}
+		if data.QuotedMessageOfQuestion == "" {
+			if filename != "" {
+				data.QuotedMessageOfQuestion = dispatch.Sprintf("File: %s. Caption: %s", filename, caption)
+			} else {
+				data.QuotedMessageOfQuestion = caption
+			}
 		}
 
 	case quotedMsg.GetStickerMessage() != nil:
@@ -996,8 +1024,8 @@ func isAutoAIEnabled(c *dispatch.Context, s *dispatch.StoreWrapper) bool {
 		}
 	}
 
-	// 3. If self chat ("Message Yourself"), check owner's primary ID & LID
-	if isSelfChat(c) {
+	// 3. If in self chat or if the sender is the owner, check owner's primary ID & LID
+	if isSelfChat(c) || c.IsOwner() || (c.Evt != nil && c.Evt.Info.IsFromMe) {
 		if c.Client != nil && c.Client.Store != nil {
 			if c.Client.Store.ID != nil && !c.Client.Store.ID.IsEmpty() {
 				if val, err := s.GetSetting(ctx, "autoai:"+c.Client.Store.ID.ToNonAD().String()); err == nil && val != "" {
@@ -1047,7 +1075,7 @@ func HandleAutoAIIntercept(c *dispatch.Context, text string) bool {
 
 	// In 1-on-1 chats, only intercept if incoming from the remote contact,
 	// or if the owner is messaging themselves ("Message Yourself").
-	if c.Evt.Info.IsFromMe && !selfChat {
+	if !isGroup && c.Evt.Info.IsFromMe && !selfChat {
 		logger.Debug("HandleAutoAIIntercept: ignoring outgoing message in non-self chat", "chat", c.Chat.String())
 		return false
 	}
@@ -1145,19 +1173,7 @@ func isBotTaggedOrReplied(c *dispatch.Context, text string) bool {
 		return true
 	}
 
-	var ctxInfo *waE2E.ContextInfo
-	if evt.Message.GetExtendedTextMessage() != nil {
-		ctxInfo = evt.Message.GetExtendedTextMessage().ContextInfo
-	} else if evt.Message.GetImageMessage() != nil {
-		ctxInfo = evt.Message.GetImageMessage().ContextInfo
-	} else if evt.Message.GetVideoMessage() != nil {
-		ctxInfo = evt.Message.GetVideoMessage().ContextInfo
-	} else if evt.Message.GetAudioMessage() != nil {
-		ctxInfo = evt.Message.GetAudioMessage().ContextInfo
-	} else if evt.Message.GetDocumentMessage() != nil {
-		ctxInfo = evt.Message.GetDocumentMessage().ContextInfo
-	}
-
+	ctxInfo := c.GetContextInfo()
 	if ctxInfo == nil {
 		return false
 	}
@@ -1165,16 +1181,34 @@ func isBotTaggedOrReplied(c *dispatch.Context, text string) bool {
 	for _, m := range ctxInfo.MentionedJID {
 		if parseJID, err := types.ParseJID(m); err == nil {
 			nonAD := parseJID.ToNonAD()
-			if nonAD == ourJID || (!ourLID.IsEmpty() && nonAD == ourLID) {
+			if c.IsTargetOwner(nonAD) || nonAD == ourJID || (!ourLID.IsEmpty() && nonAD == ourLID) {
 				return true
 			}
 		}
 	}
 
-	if ctxInfo.Participant != nil {
-		if parseJID, err := types.ParseJID(*ctxInfo.Participant); err == nil {
-			nonAD := parseJID.ToNonAD()
-			if nonAD == ourJID || (!ourLID.IsEmpty() && nonAD == ourLID) {
+	if c.GetQuotedMessage() != nil {
+		quotedSender, hasQuotedSender := c.GetQuotedSender()
+
+		if ctxInfo.Participant != nil && *ctxInfo.Participant != "" {
+			if parseJID, err := types.ParseJID(*ctxInfo.Participant); err == nil {
+				pNonAD := parseJID.ToNonAD()
+				if c.IsTargetOwner(pNonAD) || c.IsSameUser(c.Sender, pNonAD) || pNonAD == ourJID || (!ourLID.IsEmpty() && pNonAD == ourLID) {
+					return true
+				}
+			}
+		}
+
+		if hasQuotedSender {
+			if c.IsTargetOwner(quotedSender) || c.IsSameUser(c.Sender, quotedSender) || quotedSender == ourJID || (!ourLID.IsEmpty() && quotedSender == ourLID) {
+				return true
+			}
+		}
+
+		// When the owner sends a message in a group that quotes ANY message they themselves sent:
+		// (In WhatsApp, quoting your own message in a group often omits ContextInfo.Participant)
+		if c.IsOwner() || evt.Info.IsFromMe {
+			if !hasQuotedSender || (ctxInfo.Participant == nil || *ctxInfo.Participant == "") {
 				return true
 			}
 		}

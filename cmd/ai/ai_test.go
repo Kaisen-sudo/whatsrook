@@ -779,6 +779,94 @@ func TestIsBotTaggedOrReplied(t *testing.T) {
 	if isBotTaggedOrReplied(groupCtx, "regular group chat message") {
 		t.Errorf("expected isBotTaggedOrReplied to return false without mention/tag")
 	}
+
+	// 4. In Group chat when owner replies to their own message with participant set
+	botUserStr := botJID.String()
+	replySelfEvt := &events.Message{
+		Info: types.MessageInfo{
+			Chat:     groupChat,
+			Sender:   botJID,
+			IsFromMe: true,
+		},
+		Message: &waE2E.Message{
+			ExtendedTextMessage: &waE2E.ExtendedTextMessage{
+				Text: new("what does this error mean?"),
+				ContextInfo: &waE2E.ContextInfo{
+					Participant: &botUserStr,
+					QuotedMessage: &waE2E.Message{
+						Conversation: new("FATAL: connection reset by peer"),
+					},
+				},
+			},
+		},
+	}
+	replySelfCtx := &dispatch.Context{
+		Client: client,
+		Evt:    replySelfEvt,
+		Chat:   groupChat,
+		Sender: botJID,
+	}
+	if !isBotTaggedOrReplied(replySelfCtx, "what does this error mean?") {
+		t.Errorf("expected isBotTaggedOrReplied to return true when owner replies to themselves in group")
+	}
+
+	// 5. In Group chat when owner replies to their own message with participant omitted (fromMe)
+	replySelfOmittedEvt := &events.Message{
+		Info: types.MessageInfo{
+			Chat:     groupChat,
+			Sender:   botJID,
+			IsFromMe: true,
+		},
+		Message: &waE2E.Message{
+			ExtendedTextMessage: &waE2E.ExtendedTextMessage{
+				Text: new("explain this"),
+				ContextInfo: &waE2E.ContextInfo{
+					QuotedMessage: &waE2E.Message{
+						Conversation: new("SELECT * FROM users;"),
+					},
+				},
+			},
+		},
+	}
+	replySelfOmittedCtx := &dispatch.Context{
+		Client: client,
+		Evt:    replySelfOmittedEvt,
+		Chat:   groupChat,
+		Sender: botJID,
+	}
+	if !isBotTaggedOrReplied(replySelfOmittedCtx, "explain this") {
+		t.Errorf("expected isBotTaggedOrReplied to return true when owner replies to self with omitted participant")
+	}
+
+	// 6. In Group chat when owner replies to someone else's message without mention/tag, should return false
+	otherUserStr := "999999@s.whatsapp.net"
+	replyOtherEvt := &events.Message{
+		Info: types.MessageInfo{
+			Chat:     groupChat,
+			Sender:   botJID,
+			IsFromMe: true,
+		},
+		Message: &waE2E.Message{
+			ExtendedTextMessage: &waE2E.ExtendedTextMessage{
+				Text: new("yes I agree with you"),
+				ContextInfo: &waE2E.ContextInfo{
+					Participant: &otherUserStr,
+					QuotedMessage: &waE2E.Message{
+						Conversation: new("Let's meet tomorrow at 10am"),
+					},
+				},
+			},
+		},
+	}
+	replyOtherCtx := &dispatch.Context{
+		Client: client,
+		Evt:    replyOtherEvt,
+		Chat:   groupChat,
+		Sender: botJID,
+	}
+	if isBotTaggedOrReplied(replyOtherCtx, "yes I agree with you") {
+		t.Errorf("expected isBotTaggedOrReplied to return false when owner replies to someone else without bot tag")
+	}
 }
 
 func TestHandleAutoAIIntercept_Filtering(t *testing.T) {
