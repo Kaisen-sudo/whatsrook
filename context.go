@@ -336,6 +336,15 @@ func (c *PluginContext) GetQuotedSender() (types.JID, bool) {
 			return c.Client.Store.ID.ToNonAD(), true
 		}
 	}
+	// Fallback for replies where Participant is omitted because the user replied to themselves (fromMe):
+	if ci != nil && ci.QuotedMessage != nil && c.Evt.Info.IsFromMe {
+		if !c.Sender.IsEmpty() {
+			return c.Sender.ToNonAD(), true
+		}
+		if c.Client != nil && c.Client.Store != nil && c.Client.Store.ID != nil {
+			return c.Client.Store.ID.ToNonAD(), true
+		}
+	}
 	return types.EmptyJID, false
 }
 
