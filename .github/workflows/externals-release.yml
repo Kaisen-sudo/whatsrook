@@ -2,14 +2,23 @@ name: Externals Release
 
 on:
   push:
+    branches:
+      - master
+    paths:
+      - "externals/**"
+      - ".github/workflows/externals-release.yml"
     tags:
-      - 'externals-v*'
+      - "externals-v*"
+      - "plugins-v*"
+      - "v*"
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release tag name (e.g. v0.1.0 or latest)'
+        description: "Release tag name (leave blank to target latest release or plugins)"
         required: false
-        default: ''
+        default: ""
 
 permissions:
   contents: write
@@ -123,29 +132,54 @@ jobs:
           path: release-assets
           merge-multiple: true
 
-      - name: Determine tag name
+      - name: Determine tag name and target release
         id: tag
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GIT_TOKEN || secrets.RELEASE_PAT || secrets.PAT || secrets.GITHUB_TOKEN }}
         run: |
           if [ -n "${{ github.event.inputs.tag_name }}" ]; then
-            echo "name=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
+            TAG="${{ github.event.inputs.tag_name }}"
+          elif [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
           elif [ "${{ github.ref_type }}" = "tag" ]; then
-            echo "name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            TAG="${{ github.ref_name }}"
           else
-            echo "name=latest" >> $GITHUB_OUTPUT
+            # Try finding the latest release on the repository
+            TAG=$(gh release view --json tagName -q .tagName 2>/dev/null || echo "")
+            if [ -z "$TAG" ]; then
+              TAG="plugins"
+            fi
           fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
 
-      - name: Publish GitHub Release
+      - name: Publish / Upload to GitHub Release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GIT_TOKEN || secrets.RELEASE_PAT || secrets.PAT || secrets.GITHUB_TOKEN }}
         run: |
-          TAG="${{ steps.tag.outputs.name }}"
-          echo "Publishing automated release for tag: $TAG"
-          # If the release exists, upload assets to it; otherwise create it
+          TAG="${{ steps.tag.outputs.tag }}"
+          echo "Targeting release tag: $TAG"
+          # If target release exists, upload assets to it
           if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG exists. Uploading release assets..."
             gh release upload "$TAG" release-assets/* --clobber
           else
+            echo "Release $TAG does not exist. Creating new release..."
             gh release create "$TAG" release-assets/* \
               --title "WhatsRook External Plugins ($TAG)" \
               --notes "Automated external plugin release build from commit \`${{ github.sha }}\` on $(date -u +'%Y-%m-%d %H:%M:%S UTC')." \
+              --latest \
               --target "${{ github.sha }}"
+          fi
+
+          # Also mirror assets to a dedicated 'plugins' tag for guaranteed persistent resolution
+          if [ "$TAG" != "plugins" ]; then
+            echo "Mirroring assets to persistent 'plugins' release..."
+            if gh release view "plugins" >/dev/null 2>&1; then
+              gh release upload "plugins" release-assets/* --clobber
+            else
+              gh release create "plugins" release-assets/* \
+                --title "WhatsRook External Plugins (Persistent Registry)" \
+                --notes "Official persistent release registry for external plugins." \
+                --target "${{ github.sha }}" || true
+            fi
           fi

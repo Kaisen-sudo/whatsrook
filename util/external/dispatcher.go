@@ -53,8 +53,12 @@ type Option func(*Dispatcher)
 
 // NewDispatcher initializes a new external plugin Dispatcher.
 func NewDispatcher(opts ...Option) *Dispatcher {
+	registry := DefaultReleaseRegistry
+	if env := os.Getenv(DefaultPluginRegistryEnv); env != "" {
+		registry = strings.TrimRight(env, "/")
+	}
 	d := &Dispatcher{
-		registryURL: DefaultReleaseRegistry,
+		registryURL: registry,
 		timeout:     DefaultPluginTimeout,
 		liveTimeout: DefaultLivePluginTimeout,
 		sessions:    make(map[string]*liveSession),
@@ -63,6 +67,21 @@ func NewDispatcher(opts ...Option) *Dispatcher {
 		opt(d)
 	}
 	return d
+}
+
+// RegistryURL returns the configured base release registry URL for official plugins.
+func (d *Dispatcher) RegistryURL() string {
+	if d.registryURL != "" {
+		return d.registryURL
+	}
+	return DefaultReleaseRegistry
+}
+
+// WithRegistryURL sets a custom registry download URL for official plugins.
+func WithRegistryURL(url string) Option {
+	return func(d *Dispatcher) {
+		d.registryURL = strings.TrimRight(url, "/")
+	}
 }
 
 // WithPluginDir sets a custom directory for plugin binaries.
@@ -382,8 +401,29 @@ func (d *Dispatcher) Install(ctx context.Context, name string, source string) er
 		}
 		defer resp.Body.Close()
 
+		if resp.StatusCode == http.StatusNotFound && strings.Contains(source, "/releases/latest/download/") {
+			fallbacks := []string{
+				strings.Replace(source, "/releases/latest/download/", "/releases/download/plugins/", 1),
+				strings.Replace(source, "/releases/latest/download/", "/releases/download/alpha/", 1),
+			}
+			for _, fb := range fallbacks {
+				_ = resp.Body.Close()
+				fbReq, fbErr := http.NewRequestWithContext(ctx, http.MethodGet, fb, nil)
+				if fbErr == nil {
+					fbReq.Header.Set("User-Agent", "WhatsRook-Plugin-Installer/1.0")
+					if fbResp, fbDoErr := client.Do(fbReq); fbDoErr == nil && fbResp.StatusCode >= 200 && fbResp.StatusCode < 300 {
+						resp = fbResp
+						source = fb
+						break
+					} else if fbResp != nil {
+						_ = fbResp.Body.Close()
+					}
+				}
+			}
+		}
+
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			return fmt.Errorf("download returned HTTP status %d", resp.StatusCode)
+			return fmt.Errorf("download returned HTTP status %d (%s)", resp.StatusCode, source)
 		}
 		reader = io.LimitReader(resp.Body, MaxPluginBinarySize+1)
 	} else {

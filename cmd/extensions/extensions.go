@@ -45,6 +45,9 @@ func handlePluginInstall(ctx *dispatch.Context) error {
 			Bulletf("%sinstall all (installs all %d official external plugins in parallel)", p, len(external.OfficialPlugins)).
 			Bulletf("%sinstall <name> <local-path-or-url>", p).
 			Blank().
+			Section("Registry:").
+			Bullet(external.DefaultDispatcher.RegistryURL()).
+			Blank().
 			Section("Official Plugins:").
 			Bullets(external.OfficialPlugins...).
 			Reply()
@@ -127,7 +130,7 @@ func handlePluginList(ctx *dispatch.Context) error {
 	suffix, _ := external.DefaultDispatcher.ResolvePlatformSuffix()
 	if len(plugins) == 0 {
 		p := ctx.GetPrefix()
-		return ctx.Replyf("No external plugins installed.\n\nType `%sinstall <name>` or `%sinstall all` to install plugins (detected platform: %s/%s).", p, p, runtime.GOOS, runtime.GOARCH)
+		return ctx.Replyf("No external plugins installed.\n\nType `%sinstall <name>` or `%sinstall all` to install plugins (detected platform: %s/%s).\n\nRegistry: %s", p, p, runtime.GOOS, runtime.GOARCH, external.DefaultDispatcher.RegistryURL())
 	}
 
 	tb := ctx.Text().Headerf("Installed External Plugins (%s):", suffix)

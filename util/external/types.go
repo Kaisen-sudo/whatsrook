@@ -7,6 +7,8 @@ import (
 const (
 	// DefaultPluginDirEnv is the environment variable override for external plugins directory.
 	DefaultPluginDirEnv = "WHATSROOK_PLUGIN_DIR"
+	// DefaultPluginRegistryEnv is the environment variable override for the external plugins release registry URL.
+	DefaultPluginRegistryEnv = "WHATSROOK_PLUGIN_REGISTRY"
 	// DefaultReleaseRegistry is the official release registry URL.
 	DefaultReleaseRegistry = "https://github.com/thruqe/whatsapp-go/releases/latest/download"
 	// MaxPluginBinarySize is the maximum allowed size for an external plugin binary (64 MiB).
