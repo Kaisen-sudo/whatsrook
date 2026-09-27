@@ -28,6 +28,7 @@ import (
 	_ "whatsrook/cmd/ai"
 	_ "whatsrook/cmd/business"
 	_ "whatsrook/cmd/chats"
+	_ "whatsrook/cmd/dl"
 	_ "whatsrook/cmd/extensions"
 	_ "whatsrook/cmd/filters"
 	_ "whatsrook/cmd/games"

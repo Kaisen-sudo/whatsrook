@@ -1,0 +1,15 @@
+{
+  "name": "scraper",
+  "module": "scrape.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^7"
+  },
+  "dependencies": {
+    "puppeteer-core": "^25.12.0"
+  }
+}
