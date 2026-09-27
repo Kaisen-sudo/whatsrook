@@ -544,6 +544,213 @@ func (c *PluginContext) ReplyWithVideoWithMentions(data []byte, mimetype, captio
 	return err
 }
 
+// AlbumMediaItem represents a media item (image or video) to be bundled in an album message.
+type AlbumMediaItem struct {
+	Data     []byte
+	Mimetype string
+	Caption  string
+	IsVideo  bool
+}
+
+// SendAlbum sends multiple media items grouped as a WhatsApp album without quoting.
+func (c *PluginContext) SendAlbum(items []AlbumMediaItem) error {
+	return c.sendAlbumInternal(items, false)
+}
+
+// ReplyWithAlbum sends multiple media items grouped as a WhatsApp album quoted to the triggering message.
+func (c *PluginContext) ReplyWithAlbum(items []AlbumMediaItem) error {
+	return c.sendAlbumInternal(items, true)
+}
+
+func (c *PluginContext) sendAlbumInternal(items []AlbumMediaItem, isReply bool) error {
+	c.StopAutoLoader()
+	if c.Client == nil {
+		return fmt.Errorf("client unavailable")
+	}
+
+	var validItems []AlbumMediaItem
+	for _, it := range items {
+		if len(it.Data) > 0 {
+			validItems = append(validItems, it)
+		}
+	}
+
+	if len(validItems) == 0 {
+		return fmt.Errorf("no media items to send in album")
+	}
+
+	// Single item delivery does not require an album wrapper.
+	if len(validItems) == 1 {
+		it := validItems[0]
+		if it.IsVideo {
+			if isReply {
+				return c.ReplyWithVideo(it.Data, it.Mimetype, it.Caption)
+			}
+			return c.SendVideo(it.Data, it.Mimetype, it.Caption)
+		}
+		if isReply {
+			return c.ReplyWithImage(it.Data, it.Mimetype, it.Caption)
+		}
+		return c.SendImage(it.Data, it.Mimetype, it.Caption)
+	}
+
+	ctx := c.GetSendContext()
+
+	type uploadedAlbumItem struct {
+		item     AlbumMediaItem
+		uploaded whatsmeow.UploadResponse
+	}
+
+	var uploadedItems []uploadedAlbumItem
+	for _, it := range validItems {
+		mediaType := whatsmeow.MediaImage
+		if it.IsVideo {
+			mediaType = whatsmeow.MediaVideo
+		}
+		up, err := c.Client.Upload(ctx, it.Data, mediaType)
+		if err != nil {
+			logger.Error("sendAlbum: failed to upload media item", "isVideo", it.IsVideo, "bytes", len(it.Data), "err", err)
+			continue
+		}
+		uploadedItems = append(uploadedItems, uploadedAlbumItem{
+			item:     it,
+			uploaded: up,
+		})
+	}
+
+	if len(uploadedItems) == 0 {
+		return fmt.Errorf("failed to upload any album media items")
+	}
+
+	// If only 1 item succeeded in uploading, send it directly.
+	if len(uploadedItems) == 1 {
+		up := uploadedItems[0]
+		if up.item.IsVideo {
+			if isReply {
+				return c.ReplyWithVideo(up.item.Data, up.item.Mimetype, up.item.Caption)
+			}
+			return c.SendVideo(up.item.Data, up.item.Mimetype, up.item.Caption)
+		}
+		if isReply {
+			return c.ReplyWithImage(up.item.Data, up.item.Mimetype, up.item.Caption)
+		}
+		return c.SendImage(up.item.Data, up.item.Mimetype, up.item.Caption)
+	}
+
+	var imgCount, vidCount uint32
+	for _, up := range uploadedItems {
+		if up.item.IsVideo {
+			vidCount++
+		} else {
+			imgCount++
+		}
+	}
+
+	var ci *waE2E.ContextInfo
+	if isReply {
+		ci = c.replyContextInfo()
+	}
+
+	albumMsg := &waE2E.Message{
+		AlbumMessage: &waE2E.AlbumMessage{
+			ExpectedImageCount: &imgCount,
+			ExpectedVideoCount: &vidCount,
+			ContextInfo:        ci,
+		},
+	}
+
+	resp, err := c.Client.SendMessage(ctx, c.Chat, albumMsg)
+	if err != nil {
+		logger.Warn("sendAlbum: failed to send AlbumMessage header, falling back to sequential delivery", "err", err)
+		for i, up := range uploadedItems {
+			var sendErr error
+			if up.item.IsVideo {
+				if i == 0 && isReply {
+					sendErr = c.ReplyWithVideo(up.item.Data, up.item.Mimetype, up.item.Caption)
+				} else {
+					sendErr = c.SendVideo(up.item.Data, up.item.Mimetype, up.item.Caption)
+				}
+			} else {
+				if i == 0 && isReply {
+					sendErr = c.ReplyWithImage(up.item.Data, up.item.Mimetype, up.item.Caption)
+				} else {
+					sendErr = c.SendImage(up.item.Data, up.item.Mimetype, up.item.Caption)
+				}
+			}
+			if sendErr != nil {
+				logger.Error("sendAlbum fallback: failed to send media item", "index", i, "err", sendErr)
+			}
+			if i < len(uploadedItems)-1 {
+				time.Sleep(300 * time.Millisecond)
+			}
+		}
+		return nil
+	}
+
+	parentKey := c.Client.BuildMessageKey(c.Chat, types.EmptyJID, resp.ID)
+	assocType := waE2E.MessageAssociation_MEDIA_ALBUM
+
+	for i, up := range uploadedItems {
+		mimetype := up.item.Mimetype
+		caption := up.item.Caption
+		var captionPtr *string
+		if caption != "" {
+			captionPtr = &caption
+		}
+
+		childMsg := &waE2E.Message{
+			MessageContextInfo: &waE2E.MessageContextInfo{
+				MessageAssociation: &waE2E.MessageAssociation{
+					AssociationType:  &assocType,
+					ParentMessageKey: parentKey,
+					MessageIndex:     new(int32(i)),
+				},
+			},
+		}
+
+		if up.item.IsVideo {
+			if mimetype == "" {
+				mimetype = "video/mp4"
+			}
+			childMsg.VideoMessage = &waE2E.VideoMessage{
+				URL:           &up.uploaded.URL,
+				DirectPath:    &up.uploaded.DirectPath,
+				MediaKey:      up.uploaded.MediaKey,
+				Mimetype:      &mimetype,
+				FileEncSHA256: up.uploaded.FileEncSHA256,
+				FileSHA256:    up.uploaded.FileSHA256,
+				FileLength:    new(uint64(len(up.item.Data))),
+				Caption:       captionPtr,
+			}
+		} else {
+			if mimetype == "" {
+				mimetype = "image/jpeg"
+			}
+			childMsg.ImageMessage = &waE2E.ImageMessage{
+				URL:           &up.uploaded.URL,
+				DirectPath:    &up.uploaded.DirectPath,
+				MediaKey:      up.uploaded.MediaKey,
+				Mimetype:      &mimetype,
+				FileEncSHA256: up.uploaded.FileEncSHA256,
+				FileSHA256:    up.uploaded.FileSHA256,
+				FileLength:    new(uint64(len(up.item.Data))),
+				Caption:       captionPtr,
+			}
+		}
+
+		_, sendErr := c.Client.SendMessage(ctx, c.Chat, childMsg)
+		if sendErr != nil {
+			logger.Error("sendAlbum: failed to send child media item", "index", i, "err", sendErr)
+		}
+
+		if i < len(uploadedItems)-1 {
+			time.Sleep(150 * time.Millisecond)
+		}
+	}
+
+	return nil
+}
+
 // ReplyWithAudio uploads and sends audio quoted to the triggering message.
 func (c *PluginContext) ReplyWithAudio(data []byte, mimetype string) error {
 	c.StopAutoLoader()
