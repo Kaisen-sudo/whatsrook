@@ -187,18 +187,7 @@ func handleDL(ctx *dispatch.Context) error {
 	// 2. Fetch metadata using yt-dlp -J
 	meta, errMeta := fetchMetadata(ctx, targetURL)
 	if errMeta != nil {
-		logger.Warn("handleDL: yt-dlp metadata fetch failed, attempting social scraper fallback", "url", targetURL, "err", errMeta)
-
-		// Attempt headless browser scraper fallback via Bun & Puppeteer
-		if scraped, errScrape := runSocialScraper(ctx, targetURL); errScrape == nil && len(scraped.Media) > 0 {
-			logger.Info("handleDL: social scraper found media", "url", targetURL, "platform", scraped.Platform, "count", len(scraped.Media))
-			if errDeliver := deliverScrapedMedia(ctx, scraped); errDeliver == nil {
-				return nil
-			} else {
-				logger.Error("handleDL: failed delivering scraped media", "err", errDeliver)
-			}
-		}
-
+		logger.Error("handleDL: metadata fetch failed", "url", targetURL, "err", errMeta)
 		return sendFailureWithCookiePrompt(ctx, errMeta)
 	}
 
@@ -206,12 +195,6 @@ func handleDL(ctx *dispatch.Context) error {
 	if meta.IsImage() {
 		logger.Info("handleDL: target identified as image", "url", targetURL, "ext", meta.Ext, "entries", len(meta.Entries))
 		if err := downloadAndSendImages(ctx, targetURL, meta); err != nil {
-			// If yt-dlp failed downloading images, attempt social scraper fallback
-			if scraped, errScrape := runSocialScraper(ctx, targetURL); errScrape == nil && len(scraped.Media) > 0 {
-				if errDeliver := deliverScrapedMedia(ctx, scraped); errDeliver == nil {
-					return nil
-				}
-			}
 			return sendFailureWithCookiePrompt(ctx, err)
 		}
 		return nil
