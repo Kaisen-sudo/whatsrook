@@ -1107,7 +1107,21 @@ func TestAutoAI_GroupAndDMScoping(t *testing.T) {
 		},
 	}
 
-	// 1. By default, neither DM nor Group AutoAI should be active
+	selfCtx := &dispatch.Context{
+		Ctx:    ctx,
+		Client: client,
+		Chat:   botPN,
+		Sender: botPN,
+		Evt: &events.Message{
+			Info: types.MessageInfo{
+				Chat:     botPN,
+				Sender:   botPN,
+				IsFromMe: true,
+			},
+		},
+	}
+
+	// 1. By default, neither DM, Group, nor Self-Chat AutoAI should be active
 	if isAutoAIDMsEnabled(ctx, s) {
 		t.Errorf("expected isAutoAIDMsEnabled to be false by default")
 	}
@@ -1119,6 +1133,12 @@ func TestAutoAI_GroupAndDMScoping(t *testing.T) {
 	}
 	if isAutoAIEnabled(groupCtx, s) {
 		t.Errorf("AutoAI should NOT be enabled for group when autoai:groups is off")
+	}
+	if isAutoAIEnabled(selfCtx, s) {
+		t.Errorf("AutoAI should NOT be enabled for self-chat by default")
+	}
+	if HandleAutoAIIntercept(dmCtx, "hello") {
+		t.Errorf("HandleAutoAIIntercept should NOT intercept DM by default")
 	}
 
 	// 2. Activate for all DMs
