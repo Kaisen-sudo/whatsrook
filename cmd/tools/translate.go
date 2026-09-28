@@ -124,11 +124,11 @@ func handleTranslate(ctx *dispatch.Context) error {
 			if code, name, ok := NormalizeLanguageCode(configured); ok {
 				targetLang = code
 				targetLangName = name
-				targetNote = fmt.Sprintf("Configured default: %s (%s)", name, code)
+				targetNote = fmt.Sprintf("Default: %s", name)
 			} else {
 				targetLang = configured
 				targetLangName = configured
-				targetNote = fmt.Sprintf("Configured default: %s", configured)
+				targetNote = fmt.Sprintf("Default: %s", configured)
 			}
 		} else {
 			// Auto-detect owner's country and official language
@@ -137,13 +137,9 @@ func handleTranslate(ctx *dispatch.Context) error {
 			targetLang = info.LangCode
 			targetLangName = info.LangName
 			if found {
-				userOrOwner := "User"
-				if ctx.IsOwner() {
-					userOrOwner = "Owner"
-				}
-				targetNote = fmt.Sprintf("Auto-detected from %s's Country: %s (+%s)", userOrOwner, info.CountryName, info.DialCode)
+				targetNote = fmt.Sprintf("Auto-detected (%s)", info.CountryName)
 			} else {
-				targetNote = "Default: English (en)"
+				targetNote = "Default: English"
 			}
 		}
 	}
@@ -171,29 +167,34 @@ func handleTranslate(ctx *dispatch.Context) error {
 			} else {
 				targetLangName = altTarget
 			}
-			targetNote = fmt.Sprintf("Auto-switched to %s (message is already in %s)", targetLangName, origTargetName)
+			targetNote = fmt.Sprintf("Auto-switched to %s (already in %s)", targetLangName, origTargetName)
 		}
 	}
 
-	sourceLangName := sourceLangCode
+	// Clean language names for concise header
+	srcDisplay := sourceLangCode
 	if _, name, ok := NormalizeLanguageCode(sourceLangCode); ok {
-		sourceLangName = fmt.Sprintf("%s (%s)", name, sourceLangCode)
+		srcDisplay = name
+	}
+	tgtDisplay := targetLangName
+	if tgtDisplay == "" {
+		if _, name, ok := NormalizeLanguageCode(targetLang); ok {
+			tgtDisplay = name
+		} else {
+			tgtDisplay = targetLang
+		}
 	}
 
-	// 6. Build response
-	tb := ctx.Text().
-		Header("TRANSLATION").
-		Field("From", sourceLangName).
-		Field("To", fmt.Sprintf("%s (%s)", targetLangName, targetLang))
+	// 6. Build response cleanly and naturally
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("🌐 *%s* → *%s*\n\n", srcDisplay, tgtDisplay))
+	sb.WriteString(translated)
 
 	if targetNote != "" {
-		tb.Field("Language Mode", targetNote)
+		sb.WriteString(fmt.Sprintf("\n\n_%s_", targetNote))
 	}
 
-	tb.Blank().
-		Line(translated)
-
-	return ctx.Reply(tb.String())
+	return ctx.Reply(sb.String())
 }
 
 // isSameLanguage checks whether two language codes represent the same language (e.g. "pt" and "pt-BR").
