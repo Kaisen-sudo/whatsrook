@@ -5,14 +5,10 @@ on:
     branches: [master]
     paths:
       - "externals/**"
-      - "sdk/**"
-      - ".github/workflows/externals-ci.yml"
   pull_request:
     branches: [master]
     paths:
       - "externals/**"
-      - "sdk/**"
-      - ".github/workflows/externals-ci.yml"
   workflow_dispatch:
 
 jobs:

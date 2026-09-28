@@ -6,13 +6,8 @@ on:
       - master
     paths:
       - "externals/**"
-      - ".github/workflows/externals-release.yml"
     tags:
       - "externals-v*"
-      - "plugins-v*"
-      - "v*"
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       tag_name:
