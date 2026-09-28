@@ -4,8 +4,6 @@ External plugins allow you to extend whatsrook with independently developed exec
 
 External plugins run as isolated child processes managed by the dedicated [`package external`](./util/external). They can perform virtually any action an internal plugin can do — sending rich media, polls, reactions, audio voice notes, stickers, documents, and real-time live message edits.
 
----
-
 ## How It Works
 
 1. Create a plugin program in any language.
@@ -23,8 +21,6 @@ Example:
 .weather London
 ```
 
----
-
 ## Plugin Management Commands
 
 | Command                      | Usage                         | Description                                                    |
@@ -35,8 +31,6 @@ Example:
 | `.plist`                     | `.plist` (or `.pluginlist`)   | Lists all installed external plugins                           |
 | `.uninstall <name>`          | `.uninstall weather`          | Uninstalls an external plugin                                  |
 | `.uninstall all`             | `.uninstall all`              | Uninstalls all external plugins                                |
-
----
 
 ## Inbound Request Payload (`stdin`)
 
@@ -234,32 +228,13 @@ fn main() {
 }
 ```
 
----
+## Supported Architectures & Platforms
 
-## Supported Architectures & WebAssembly (WASM)
-
-WhatsRook supports two execution engines for external plugins:
-
-### 1. WebAssembly / WASI Plugins (`.wasm`)
-
-WebAssembly modules run inside an embedded, pure-Go sandboxed runtime ([`wazero`](https://github.com/tetratelabs/wazero)). A single `.wasm` module runs universally on all operating systems and architectures with sub-millisecond startup times and memory isolation.
-
-```text
-# Install any WebAssembly plugin
-.install calc https://example.com/calc.wasm
-.calc 2 + 2
-```
-
-To build a Rust plugin as WASM:
-
-```bash
-cargo build --target wasm32-wasip1 --release
-```
-
-### 2. Native Executables
+WhatsRook executes external plugins as standalone native processes. External plugins are distributed as statically compiled native binaries for all major platforms:
 
 - **Linux AMD64 (Static MUSL)**: `x86_64-unknown-linux-musl`
 - **Linux ARM64 / Android Termux (Static MUSL)**: `aarch64-unknown-linux-musl`
 - **macOS Apple Silicon**: `aarch64-apple-darwin`
 - **macOS Intel**: `x86_64-apple-darwin`
 - **Windows x64**: `x86_64-pc-windows-msvc`
+
