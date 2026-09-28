@@ -42,7 +42,7 @@ keywords = ["whatsrook", "plugins", "whatsapp", "bot", "cli"]
 
 [workspace.dependencies]
 # Published SDK — use the crates.io release instead of the old local path.
-whatsrook-sdk = "0.1"
+whatsrook-sdk = { version = "0.1", path = "../sdk" }
 
 [profile.release]
 opt-level = 3

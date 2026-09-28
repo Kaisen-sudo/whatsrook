@@ -51,6 +51,18 @@ use std::time::Duration;
 pub use reqwest;
 pub use reqwest::blocking::Client as HttpClient;
 
+pub mod fmt;
+pub mod media;
+
+pub use fmt::{
+    MessageBuilder, bold, bullet_list, code_block, italic, monospace, numbered_list, quote,
+    strikethrough,
+};
+pub use media::{
+    Base64Error, decode_base64, encode_base64, read_file_as_base64, read_file_as_data_url,
+    to_data_url,
+};
+
 /// Default browser User-Agent used by [`create_http_client`].
 pub const DEFAULT_USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
@@ -297,6 +309,101 @@ impl Request {
     pub fn is_admin(&self) -> bool {
         self.is_admin
     }
+
+    /// Returns the argument at 0-based `index`, if available.
+    pub fn arg(&self, index: usize) -> Option<&str> {
+        self.args.get(index).map(|s| s.as_str())
+    }
+
+    /// Parses the argument at 0-based `index` into any type implementing [`std::str::FromStr`].
+    pub fn arg_as<T: std::str::FromStr>(&self, index: usize) -> Option<T> {
+        self.arg(index).and_then(|s| s.parse::<T>().ok())
+    }
+
+    /// Returns the first argument (subcommand) if present.
+    pub fn subcommand(&self) -> Option<&str> {
+        self.arg(0)
+    }
+
+    /// Returns all arguments following the first argument (subcommand).
+    pub fn subcommand_args(&self) -> &[String] {
+        if self.args.is_empty() {
+            &[]
+        } else {
+            &self.args[1..]
+        }
+    }
+
+    /// Checks if a boolean flag (e.g. `--help` or `-h`) was passed in the arguments.
+    pub fn flag(&self, name: &str) -> bool {
+        let long = format!("--{}", name);
+        let short = format!("-{}", name);
+        self.args.iter().any(|a| a == &long || a == &short)
+    }
+
+    /// Returns the string value of a flag passed as `--<name>=<val>` or `--<name> <val>`.
+    pub fn flag_value(&self, name: &str) -> Option<&str> {
+        let prefix = format!("--{}=", name);
+        let long = format!("--{}", name);
+        let short = format!("-{}", name);
+        for (i, a) in self.args.iter().enumerate() {
+            if let Some(val) = a.strip_prefix(&prefix) {
+                return Some(val);
+            }
+            if (a == &long || a == &short) && i + 1 < self.args.len() {
+                return Some(self.args[i + 1].as_str());
+            }
+        }
+        None
+    }
+
+    /// Returns `true` if the message was sent in a direct message (private chat), not in a group.
+    pub fn is_dm(&self) -> bool {
+        !self.is_group
+    }
+
+    /// Returns `true` if a live session is currently active.
+    pub fn is_live(&self) -> bool {
+        self.live_session
+    }
+
+    /// Returns `true` if this invocation is requesting cancellation of an active live session.
+    pub fn is_cancel(&self) -> bool {
+        self.is_cancel_request
+    }
+
+    /// Returns the target chat JID.
+    pub fn chat_id(&self) -> &str {
+        &self.chat
+    }
+
+    /// Returns the sender's JID.
+    pub fn sender_id(&self) -> &str {
+        &self.sender
+    }
+
+    /// Extracts the phone number / user ID from the sender JID (part before `@`).
+    pub fn sender_phone(&self) -> Option<&str> {
+        if self.sender.is_empty() {
+            None
+        } else {
+            self.sender.split('@').next()
+        }
+    }
+
+    /// Extracts the target ID from the chat JID (part before `@`).
+    pub fn chat_target(&self) -> Option<&str> {
+        if self.chat.is_empty() {
+            None
+        } else {
+            self.chat.split('@').next()
+        }
+    }
+
+    /// Returns the slice of mentioned user JIDs.
+    pub fn mentioned_jids(&self) -> &[String] {
+        &self.mentioned_jids
+    }
 }
 
 // ─── Action Protocol ──────────────────────────────────────────────────────────
@@ -431,6 +538,153 @@ pub enum Action<'a> {
     Done,
 }
 
+impl<'a> Action<'a> {
+    /// Creates a text reply action frame.
+    pub fn reply(text: &'a str) -> Self {
+        Action::Reply { text }
+    }
+
+    /// Creates an edit action frame targeting an existing message ID.
+    pub fn edit(msg_id: &'a str, text: &'a str) -> Self {
+        Action::Edit { msg_id, text }
+    }
+
+    /// Creates a reaction action frame on the triggering message.
+    pub fn react(emoji: &'a str) -> Self {
+        Action::React {
+            msg_id: None,
+            emoji,
+        }
+    }
+
+    /// Creates a reaction action frame on a specific message by its ID.
+    pub fn react_to(msg_id: &'a str, emoji: &'a str) -> Self {
+        Action::React {
+            msg_id: Some(msg_id),
+            emoji,
+        }
+    }
+
+    /// Creates a delete action frame to revoke a message for everyone.
+    pub fn delete(msg_id: &'a str) -> Self {
+        Action::Delete { msg_id }
+    }
+
+    /// Creates an image action frame.
+    pub fn image(data: &'a str) -> Self {
+        Action::SendImage {
+            data,
+            caption: None,
+            mimetype: None,
+        }
+    }
+
+    /// Creates an audio action frame.
+    pub fn audio(data: &'a str) -> Self {
+        Action::SendAudio {
+            data,
+            mimetype: None,
+            ptt: false,
+        }
+    }
+
+    /// Creates a video action frame.
+    pub fn video(data: &'a str) -> Self {
+        Action::SendVideo {
+            data,
+            caption: None,
+            mimetype: None,
+            gif_playback: false,
+        }
+    }
+
+    /// Creates a document action frame.
+    pub fn document(data: &'a str, filename: &'a str) -> Self {
+        Action::SendDocument {
+            data,
+            filename: Some(filename),
+            caption: None,
+            mimetype: None,
+        }
+    }
+
+    /// Creates a sticker action frame.
+    pub fn sticker(data: &'a str) -> Self {
+        Action::SendSticker { data }
+    }
+
+    /// Creates a single-select poll action frame.
+    pub fn poll(question: &'a str, options: &'a [&'a str]) -> Self {
+        Action::Poll {
+            question,
+            options,
+            selectable: 1,
+        }
+    }
+
+    /// Creates a loader action frame.
+    pub fn loader(text: Option<&'a str>) -> Self {
+        Action::Loader { text }
+    }
+
+    /// Creates a done action frame signaling session completion.
+    pub fn done() -> Self {
+        Action::Done
+    }
+
+    /// Sets or updates the caption on an image, video, or document action.
+    pub fn with_caption(mut self, cap: &'a str) -> Self {
+        match &mut self {
+            Action::SendImage { caption, .. } => *caption = Some(cap),
+            Action::SendVideo { caption, .. } => *caption = Some(cap),
+            Action::SendDocument { caption, .. } => *caption = Some(cap),
+            _ => {}
+        }
+        self
+    }
+
+    /// Sets or updates the MIME type override.
+    pub fn with_mimetype(mut self, mime: &'a str) -> Self {
+        match &mut self {
+            Action::SendImage { mimetype, .. } => *mimetype = Some(mime),
+            Action::SendAudio { mimetype, .. } => *mimetype = Some(mime),
+            Action::SendVideo { mimetype, .. } => *mimetype = Some(mime),
+            Action::SendDocument { mimetype, .. } => *mimetype = Some(mime),
+            _ => {}
+        }
+        self
+    }
+
+    /// Configures audio playback as a push-to-talk voice note (PTT).
+    pub fn as_ptt(mut self, is_ptt: bool) -> Self {
+        if let Action::SendAudio { ptt, .. } = &mut self {
+            *ptt = is_ptt;
+        }
+        self
+    }
+
+    /// Configures video playback as a looping GIF.
+    pub fn as_gif(mut self, is_gif: bool) -> Self {
+        if let Action::SendVideo { gif_playback, .. } = &mut self {
+            *gif_playback = is_gif;
+        }
+        self
+    }
+
+    /// Configures the number of selectable options for a poll.
+    pub fn with_selectable(mut self, count: usize) -> Self {
+        if let Action::Poll { selectable, .. } = &mut self {
+            *selectable = count;
+        }
+        self
+    }
+
+    /// Serializes and sends this action to `stdout` immediately.
+    pub fn send(&self) {
+        send_action(self);
+    }
+}
+
 /// Acknowledgement sent by WhatsRook on `stdin` following actions that return a message ID.
 ///
 /// Currently returned after [`Action::Reply`]. Read it with [`await_ack`].
@@ -522,6 +776,20 @@ pub fn send_react(emoji: &str) {
     });
 }
 
+/// React to a specific message ID with an emoji.
+///
+/// # Example
+///
+/// ```no_run
+/// whatsrook_sdk::send_react_to("3EB01234567890ABCDEF", "🔥");
+/// ```
+pub fn send_react_to(msg_id: &str, emoji: &str) {
+    send_action(&Action::React {
+        msg_id: Some(msg_id),
+        emoji,
+    });
+}
+
 /// Revoke (delete for everyone) a message by its ID.
 pub fn send_delete(msg_id: &str) {
     send_action(&Action::Delete { msg_id });
@@ -542,6 +810,15 @@ pub fn send_image(data_or_url: &str, caption: Option<&str>) {
     });
 }
 
+/// Send an image with a custom MIME type and optional caption.
+pub fn send_image_with_type(data_or_url: &str, caption: Option<&str>, mimetype: Option<&str>) {
+    send_action(&Action::SendImage {
+        data: data_or_url,
+        caption,
+        mimetype,
+    });
+}
+
 /// Send audio or a voice note (PTT) from a URL or base64-encoded data.
 ///
 /// Set `is_ptt` to `true` to render the message as a push-to-talk voice note
@@ -550,6 +827,15 @@ pub fn send_audio(data_or_url: &str, is_ptt: bool) {
     send_action(&Action::SendAudio {
         data: data_or_url,
         mimetype: None,
+        ptt: is_ptt,
+    });
+}
+
+/// Send audio with an explicit MIME type and PTT flag.
+pub fn send_audio_full(data_or_url: &str, is_ptt: bool, mimetype: Option<&str>) {
+    send_action(&Action::SendAudio {
+        data: data_or_url,
+        mimetype,
         ptt: is_ptt,
     });
 }
@@ -574,6 +860,21 @@ pub fn send_gif(data_or_url: &str, caption: Option<&str>) {
     });
 }
 
+/// Send a video with full options: caption, MIME type override, and GIF playback mode.
+pub fn send_video_full(
+    data_or_url: &str,
+    caption: Option<&str>,
+    mimetype: Option<&str>,
+    gif_playback: bool,
+) {
+    send_action(&Action::SendVideo {
+        data: data_or_url,
+        caption,
+        mimetype,
+        gif_playback,
+    });
+}
+
 /// Send a document file from a URL or base64-encoded data.
 ///
 /// `filename` is the name shown in the WhatsApp document bubble (e.g. `"report.pdf"`).
@@ -583,6 +884,21 @@ pub fn send_document(data_or_url: &str, filename: &str, caption: Option<&str>) {
         filename: Some(filename),
         caption,
         mimetype: None,
+    });
+}
+
+/// Send a document file with full options including MIME type override.
+pub fn send_document_full(
+    data_or_url: &str,
+    filename: &str,
+    caption: Option<&str>,
+    mimetype: Option<&str>,
+) {
+    send_action(&Action::SendDocument {
+        data: data_or_url,
+        filename: Some(filename),
+        caption,
+        mimetype,
     });
 }
 
@@ -603,6 +919,21 @@ pub fn send_poll(question: &str, options: &[&str]) {
         question,
         options,
         selectable: 1,
+    });
+}
+
+/// Send an interactive multi-choice poll with a customizable number of selectable options.
+///
+/// # Example
+///
+/// ```no_run
+/// whatsrook_sdk::send_multi_poll("Pick up to 2:", &["Rust", "Go", "TypeScript"], 2);
+/// ```
+pub fn send_multi_poll(question: &str, options: &[&str], selectable: usize) {
+    send_action(&Action::Poll {
+        question,
+        options,
+        selectable,
     });
 }
 
@@ -691,4 +1022,97 @@ pub fn create_http_client(timeout_secs: u64) -> reqwest::blocking::Client {
         .timeout(Duration::from_secs(timeout_secs))
         .build()
         .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_request_methods() {
+        let req = Request {
+            command: "weather".into(),
+            args: vec![
+                "forecast".into(),
+                "London".into(),
+                "--days".into(),
+                "5".into(),
+                "-v".into(),
+            ],
+            raw_args: "forecast London --days 5 -v".into(),
+            chat: "123456789-987654@g.us".into(),
+            sender: "44712345678@s.whatsapp.net".into(),
+            prefix: ".".into(),
+            bot_name: "WhatsRook".into(),
+            push_name: "Alice".into(),
+            is_group: true,
+            is_sudo: false,
+            is_owner: false,
+            is_admin: true,
+            live_session: true,
+            is_cancel_request: false,
+            quoted_message: None,
+            mentioned_jids: vec!["44799999999@s.whatsapp.net".into()],
+        };
+
+        assert_eq!(req.subcommand(), Some("forecast"));
+        assert_eq!(req.subcommand_args(), &["London", "--days", "5", "-v"]);
+        assert_eq!(req.arg(1), Some("London"));
+        assert_eq!(req.arg_as::<u32>(3), Some(5));
+        assert!(req.flag("v"));
+        assert_eq!(req.flag_value("days"), Some("5"));
+        assert_eq!(req.sender_phone(), Some("44712345678"));
+        assert_eq!(req.chat_target(), Some("123456789-987654"));
+        assert_eq!(req.chat_id(), "123456789-987654@g.us");
+        assert_eq!(req.sender_id(), "44712345678@s.whatsapp.net");
+        assert!(!req.is_dm());
+        assert!(req.is_group());
+        assert!(req.is_admin());
+        assert!(req.is_live());
+        assert!(!req.is_cancel());
+        assert_eq!(req.mentioned_jids().len(), 1);
+    }
+
+    #[test]
+    fn test_action_builders_and_serialization() {
+        let reply = Action::reply("test message");
+        let json = serde_json::to_string(&reply).unwrap();
+        assert_eq!(json, r#"{"action":"reply","text":"test message"}"#);
+
+        let edit = Action::edit("MSG123", "updated");
+        let json = serde_json::to_string(&edit).unwrap();
+        assert_eq!(
+            json,
+            r#"{"action":"edit","msg_id":"MSG123","text":"updated"}"#
+        );
+
+        let react = Action::react("👍");
+        let json = serde_json::to_string(&react).unwrap();
+        assert_eq!(json, r#"{"action":"react","emoji":"👍"}"#);
+
+        let react_to = Action::react_to("MSG456", "🔥");
+        let json = serde_json::to_string(&react_to).unwrap();
+        assert_eq!(json, r#"{"action":"react","msg_id":"MSG456","emoji":"🔥"}"#);
+
+        let image = Action::image("https://example.com/pic.png").with_caption("A photo");
+        let json = serde_json::to_string(&image).unwrap();
+        assert_eq!(
+            json,
+            r#"{"action":"send_image","data":"https://example.com/pic.png","caption":"A photo"}"#
+        );
+
+        let video = Action::video("https://example.com/vid.mp4").as_gif(true);
+        let json = serde_json::to_string(&video).unwrap();
+        assert_eq!(
+            json,
+            r#"{"action":"send_video","data":"https://example.com/vid.mp4","gif_playback":true}"#
+        );
+
+        let poll = Action::poll("Choose:", &["A", "B", "C"]).with_selectable(2);
+        let json = serde_json::to_string(&poll).unwrap();
+        assert_eq!(
+            json,
+            r#"{"action":"poll","question":"Choose:","options":["A","B","C"],"selectable":2}"#
+        );
+    }
 }

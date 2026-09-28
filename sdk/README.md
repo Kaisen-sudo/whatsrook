@@ -20,12 +20,15 @@ External plugins are standalone binaries. WhatsRook spawns them as child process
 
 ## Features
 
-- Request deserialization from `stdin` with ergonomic accessor methods
-- Complete action protocol — text, image, audio, video, document, sticker, poll, reaction, live edits, loader
-- Live session support — send a message, receive its ID, and edit it in-place
-- Simple-mode output for single-reply plugins with no framing overhead
-- Preconfigured blocking HTTP client (reqwest + rustls, browser User-Agent)
-- CLI-argument fallback for local development and testing without WhatsRook
+- **Request Parsing**: `stdin` JSON deserialization with argument indexing (`arg`, `arg_as`), subcommand routing (`subcommand`), and flag evaluation (`flag`, `flag_value`).
+- **Complete Action Protocol**: Text, image, audio, video, document, sticker, poll, reactions, and live in-place edits.
+- **Fluent Action Builders**: Construct and chain actions with `.with_caption()`, `.as_gif()`, `.with_mimetype()`, and `.send()`.
+- **WhatsApp Message Formatting**: Markdown text decorators (`bold`, `italic`, `quote`, `code_block`) and fluent [`MessageBuilder`](#message-formatting).
+- **Media Utilities**: Pure-Rust RFC 4648 Base64 encoding/decoding and disk-to-data-URL helpers (`read_file_as_data_url`).
+- **Live Session Support**: Send messages, receive message IDs via stdin ACK, and update them in real time.
+- **Simple-Mode Output**: Single-reply plugins with zero boilerplate (`respond(...)`).
+- **Preconfigured HTTP Client**: Browser-like TLS client (`create_http_client`).
+- **CLI Development Fallback**: Test plugins directly from the terminal without a running WhatsApp connection.
 
 ## How It Works
 
@@ -58,6 +61,45 @@ fn main() {
 
     respond(format!("Hello, {}! 👋", query));
 }
+```
+
+## Argument & Flag Parsing
+
+```rust
+use whatsrook_sdk::{respond, Request};
+
+fn main() {
+    let req = Request::load();
+
+    // Subcommand dispatch
+    match req.subcommand() {
+        Some("status") => respond("Server status: OK"),
+        Some("count") => {
+            let limit: u32 = req.arg_as(1).unwrap_or(10);
+            let verbose = req.flag("verbose") || req.flag("v");
+            respond(format!("Counting to {} (verbose: {})", limit, verbose));
+        }
+        _ => respond("Usage: .mybot <status|count>"),
+    }
+}
+```
+
+## Message Formatting
+
+Format text with WhatsApp Markdown decorators or compose complex messages with `MessageBuilder`:
+
+```rust
+use whatsrook_sdk::fmt::MessageBuilder;
+
+let msg = MessageBuilder::new()
+    .header("Server Diagnostics")
+    .bullet("CPU: 12% across 8 cores")
+    .bullet("RAM: 3.2 GB / 16 GB")
+    .newline()
+    .quote("Cluster health: optimal")
+    .build();
+
+whatsrook_sdk::respond(msg);
 ```
 
 ## Live Session Example
@@ -105,18 +147,29 @@ fn main() {
 | :--- | :--- | :--- |
 | `reply` | `send_reply_live(text)` | Send text, returns `msg_id` for edits |
 | `edit` | `send_edit_live(id, text)` | In-place message edit |
-| `react` | `send_react(emoji)` | Emoji reaction on the triggering message |
+| `react` | `send_react(emoji)` / `send_react_to(id, emoji)` | Emoji reaction |
 | `delete` | `send_delete(id)` | Revoke a message for everyone |
 | `send_image` | `send_image(data, caption)` | Image from URL or base64 |
 | `send_audio` | `send_audio(data, ptt)` | Audio or voice note |
 | `send_video` | `send_video(data, caption)` | Video; `send_gif` for looping GIF |
 | `send_document` | `send_document(data, name, caption)` | File attachment |
 | `send_sticker` | `send_sticker(data)` | WebP sticker |
-| `poll` | `send_poll(question, options)` | Interactive poll |
+| `poll` | `send_poll(question, options)` / `send_multi_poll` | Interactive poll |
 | `loader` | `send_loader(text)` | Typing / processing indicator |
 | `done` | `send_done()` | End the live session |
 
+You can also use fluent builders directly:
+
+```rust
+use whatsrook_sdk::Action;
+
+Action::image("https://example.com/art.png")
+    .with_caption("AI Generated Artwork")
+    .send();
+```
+
 For simple single-reply plugins, use `respond(text)` — plain text written to `stdout`, no JSON framing needed.
+
 
 ## Supported Targets
 

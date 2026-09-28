@@ -1,6 +1,6 @@
 [package]
 name = "whatsrook-sdk"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 authors = ["Thruqe <thruqe@gmail.com>"]
 description = "Rust SDK for building WhatsRook external plugins"

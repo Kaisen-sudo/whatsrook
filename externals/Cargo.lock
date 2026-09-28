@@ -1579,9 +1579,7 @@ dependencies = [
 
 [[package]]
 name = "whatsrook-sdk"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7e86eba06d164d36321577807304d2fbdf376e7a2c3719227501952ae480826"
+version = "0.1.1"
 dependencies = [
  "reqwest",
  "serde",

@@ -4,6 +4,16 @@ All notable changes to `whatsrook-sdk` are documented here.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.1.1] — 2026-09-28
+
+### Added
+
+- `fmt` module with WhatsApp Markdown formatting functions (`bold`, `italic`, `strikethrough`, `monospace`, `code_block`, `quote`, `bullet_list`, `numbered_list`) and fluent `MessageBuilder`.
+- `media` module with pure-Rust RFC 4648 Base64 encoding/decoding (`encode_base64`, `decode_base64`), data URL helpers (`to_data_url`), and disk-to-data-URL utilities (`read_file_as_base64`, `read_file_as_data_url`).
+- Fluent constructors and method chaining on `Action`: `Action::reply`, `Action::image`, `Action::audio`, `Action::video`, `Action::document`, `Action::sticker`, `Action::poll`, `Action::loader`, `Action::done`, `.with_caption()`, `.with_mimetype()`, `.as_ptt()`, `.as_gif()`, `.with_selectable()`, and `.send()`.
+- Enhanced `Request` methods: `arg(index)`, `arg_as::<T>(index)`, `subcommand()`, `subcommand_args()`, `flag(name)`, `flag_value(name)`, `is_dm()`, `is_live()`, `is_cancel()`, `sender_phone()`, `chat_target()`, `chat_id()`, `sender_id()`, `mentioned_jids()`.
+- Extended action helpers: `send_react_to`, `send_multi_poll`, `send_image_with_type`, `send_document_full`, `send_video_full`, `send_audio_full`.
+
 ---
 
 ## [0.1.0] — 2026-09-22
