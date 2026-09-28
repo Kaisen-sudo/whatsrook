@@ -28,7 +28,11 @@ func (d *Dispatcher) runProcess(plugCtx *whatsrook.PluginContext, path, name str
 	// Update plugCtx context to liveCtx for outbound message sending
 	plugCtx.Ctx = liveCtx
 
-	sessionKey := d.sessionKey(request.Chat, name)
+	var sess string
+	if plugCtx != nil && plugCtx.Client != nil && plugCtx.Client.Store != nil && plugCtx.Client.Store.ID != nil {
+		sess = plugCtx.Client.Store.ID.User
+	}
+	sessionKey := d.sessionKey(request.Chat, name, sess)
 
 	var cmdArgs []string
 	var tempOutputFile string

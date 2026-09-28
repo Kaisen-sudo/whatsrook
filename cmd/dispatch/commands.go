@@ -161,7 +161,7 @@ func Count() int {
 
 // ClosestCommand returns the registered command name or alias closest in edit distance
 // to the provided target string using Damerau-Levenshtein distance.
-func ClosestCommand(target string) string {
+func ClosestCommand(target string, session ...string) string {
 	target = strings.ToLower(strings.TrimSpace(target))
 	if target == "" {
 		return ""
@@ -208,7 +208,7 @@ func ClosestCommand(target string) string {
 
 	// Also check installed external plugins
 	if external.DefaultDispatcher != nil {
-		if plugins, err := external.DefaultDispatcher.List(); err == nil {
+		if plugins, err := external.DefaultDispatcher.List(session...); err == nil {
 			for _, p := range plugins {
 				name := strings.ToLower(p.Name)
 				dist := damerauLevenshtein(target, name)

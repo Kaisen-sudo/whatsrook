@@ -117,13 +117,13 @@ func (w *StoreWrapper) GetAllPlatformCookiesMerged(ctx context.Context) (string,
 	return store.GetAllPlatformCookiesMerged(ctx, w.SQLStore)
 }
 
-// GetSessionMediaDir returns the directory path for storing session media assets.
+// GetSessionMediaDir returns the directory path for storing session media assets inside .whatsrook.
 func GetSessionMediaDir(client *whatsmeow.Client, subdirs ...string) string {
-	baseDir := "media"
+	baseDir := filepath.Join(whatsrook.DefaultDataDir(), "sessions", "default", "media")
 	if client != nil && client.Store != nil && client.Store.ID != nil {
 		user := client.Store.ID.User
 		if user != "" {
-			baseDir = filepath.Join("sessions", user, "media")
+			baseDir = filepath.Join(whatsrook.DefaultDataDir(), "sessions", user, "media")
 		}
 	}
 	if len(subdirs) > 0 {

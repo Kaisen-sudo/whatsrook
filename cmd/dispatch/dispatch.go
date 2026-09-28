@@ -57,6 +57,13 @@ func isStale(evt *events.Message) bool {
 	return IsMessageBeforeStartup(evt)
 }
 
+func getClientSession(client *whatsmeow.Client) string {
+	if client != nil && client.Store != nil && client.Store.ID != nil {
+		return client.Store.ID.User
+	}
+	return ""
+}
+
 // Dispatch evaluates an incoming message event against all registered commands and routing middleware.
 // returns true if the message was handled by a command or reactive route.
 func Dispatch(ctx context.Context, client *whatsmeow.Client, evt *events.Message) bool {
@@ -215,6 +222,7 @@ func Dispatch(ctx context.Context, client *whatsmeow.Client, evt *events.Message
 	prefixes := activePrefixes(ctx, client)
 	logger.Debug("[PERF] Dispatch: activePrefixes", "msgID", msgID, "elapsed", time.Since(tPre), "prefixes", prefixes)
 
+	sess := getClientSession(client)
 	isCommand := false
 	matchedBody := ""
 	matchedPrefix := ""
@@ -233,7 +241,7 @@ func Dispatch(ctx context.Context, client *whatsmeow.Client, evt *events.Message
 				if clean := strings.TrimRight(cmdName, ",:;!? \t"); clean != "" {
 					cmdName = clean
 				}
-				if _, exists := Get(cmdName); exists || external.DefaultDispatcher.IsInstalled(cmdName) || isLikelyCommandName(cmdName) {
+				if _, exists := Get(cmdName); exists || external.DefaultDispatcher.IsInstalled(cmdName, sess) || isLikelyCommandName(cmdName) {
 					isCommand = true
 					matchedBody = body
 					matchedPrefix = p
@@ -248,7 +256,7 @@ func Dispatch(ctx context.Context, client *whatsmeow.Client, evt *events.Message
 		fields := strings.Fields(body)
 		if len(fields) > 0 {
 			first := strings.ToLower(fields[0])
-			if _, exists := Get(first); exists || external.DefaultDispatcher.IsInstalled(first) {
+			if _, exists := Get(first); exists || external.DefaultDispatcher.IsInstalled(first, sess) {
 				isCommand = true
 				matchedBody = body
 				matchedPrefix = ""
@@ -328,7 +336,7 @@ func Dispatch(ctx context.Context, client *whatsmeow.Client, evt *events.Message
 		cmdName := strings.ToLower(fields[0])
 		args := fields[1:]
 		rawArgs := strings.TrimSpace(strings.TrimPrefix(text, fields[0]))
-		if external.DefaultDispatcher.IsInstalled(cmdName) {
+		if external.DefaultDispatcher.IsInstalled(cmdName, sess) {
 			if isStale(evt) {
 				logger.Debug("Skipping external command from message sent before bot startup",
 					"command", cmdName,
@@ -481,7 +489,7 @@ func HandleUnknownCommand(cctx *Context, prefix, cmdName string) (string, bool) 
 		}
 	}
 
-	closest := ClosestCommand(cmdName)
+	closest := ClosestCommand(cmdName, getClientSession(cctx.Client))
 	if closest == "" {
 		return "", false
 	}
@@ -517,7 +525,8 @@ func runCommand(ctx context.Context, client *whatsmeow.Client, evt *events.Messa
 
 	cmd, exists := Get(cmdName)
 	if !exists {
-		if external.DefaultDispatcher.IsInstalled(cmdName) {
+		sess := getClientSession(client)
+		if external.DefaultDispatcher.IsInstalled(cmdName, sess) {
 			return external.DefaultDispatcher.Dispatch(ctx, client, evt, cmdName, args, rawArgs)
 		}
 		return false

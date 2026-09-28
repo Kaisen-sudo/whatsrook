@@ -205,7 +205,11 @@ func processGroupCaptchaJoins(cli *whatsmeow.Client, g *events.GroupInfo) {
 
 		// Generate 8-second captcha video using external captcha plugin
 		logger.Debug("processGroupCaptchaJoins: generating animated captcha video", "group", chatKey, "user", username, "code", code)
-		vidBytes, errGen := generateCaptchaVideo(ctx, code)
+		var sess string
+		if cli != nil && cli.Store != nil && cli.Store.ID != nil {
+			sess = cli.Store.ID.User
+		}
+		vidBytes, errGen := generateCaptchaVideo(ctx, code, sess)
 
 		var mediaUploaded *whatsmeow.UploadResponse
 		if errGen == nil && len(vidBytes) > 0 {
@@ -286,8 +290,8 @@ func processGroupCaptchaJoins(cli *whatsmeow.Client, g *events.GroupInfo) {
 }
 
 // generateCaptchaVideo attempts to generate an animated verification video using the external captcha plugin binary.
-func generateCaptchaVideo(ctx context.Context, code string) ([]byte, error) {
-	pluginPath, err := external.DefaultDispatcher.PluginPath("captcha")
+func generateCaptchaVideo(ctx context.Context, code string, session ...string) ([]byte, error) {
+	pluginPath, err := external.DefaultDispatcher.PluginPath("captcha", session...)
 	if err != nil {
 		return nil, fmt.Errorf("captcha plugin resolution: %w", err)
 	}

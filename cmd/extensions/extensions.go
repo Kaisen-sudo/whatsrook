@@ -35,8 +35,19 @@ func init() {
 	})
 }
 
+func getSession(ctx *dispatch.Context) string {
+	if ctx != nil && ctx.Client != nil && ctx.Client.Store != nil && ctx.Client.Store.ID != nil {
+		return ctx.Client.Store.ID.User
+	}
+	if ctx != nil && ctx.Sender.User != "" {
+		return ctx.Sender.User
+	}
+	return ""
+}
+
 func handlePluginInstall(ctx *dispatch.Context) error {
 	p := ctx.GetPrefix()
+	sess := getSession(ctx)
 	if len(ctx.Args) == 0 {
 		return ctx.Text().
 			Header("WhatsRook External Plugin Installer").
@@ -56,7 +67,7 @@ func handlePluginInstall(ctx *dispatch.Context) error {
 	if len(ctx.Args) == 1 {
 		first := strings.ToLower(strings.TrimSpace(ctx.Args[0]))
 		if first == "all" {
-			installed, failed := external.DefaultDispatcher.InstallAll(ctx.GetSendContext())
+			installed, failed := external.DefaultDispatcher.InstallAll(ctx.GetSendContext(), sess)
 
 			tb := ctx.Text()
 			if len(installed) > 0 {
@@ -79,7 +90,7 @@ func handlePluginInstall(ctx *dispatch.Context) error {
 			return ctx.Replyf("Platform detection failed: %v", err)
 		}
 
-		if err := external.DefaultDispatcher.Install(ctx.GetSendContext(), name, url); err != nil {
+		if err := external.DefaultDispatcher.Install(ctx.GetSendContext(), name, url, sess); err != nil {
 			return ctx.Replyf("Plugin installation failed for %q:\n%v", name, err)
 		}
 		return ctx.Replyf("External plugin %q installed successfully for %s/%s.", name, runtime.GOOS, runtime.GOARCH)
@@ -91,7 +102,7 @@ func handlePluginInstall(ctx *dispatch.Context) error {
 		return ctx.Replyf("Platform resolution error: %v", err)
 	}
 
-	if err := external.DefaultDispatcher.Install(ctx.GetSendContext(), name, source); err != nil {
+	if err := external.DefaultDispatcher.Install(ctx.GetSendContext(), name, source, sess); err != nil {
 		return ctx.Replyf("Plugin installation failed: %v", err)
 	}
 	return ctx.Replyf("External plugin %q installed.", strings.ToLower(strings.TrimSpace(name)))
@@ -99,13 +110,14 @@ func handlePluginInstall(ctx *dispatch.Context) error {
 
 func handlePluginUninstall(ctx *dispatch.Context) error {
 	p := ctx.GetPrefix()
+	sess := getSession(ctx)
 	if len(ctx.Args) != 1 {
 		return dispatch.ErrUsage(p + "uninstall <name> (or " + p + "uninstall all)")
 	}
 
 	targetName := strings.ToLower(strings.TrimSpace(ctx.Args[0]))
 	if targetName == "all" {
-		removed, err := external.DefaultDispatcher.UninstallAll()
+		removed, err := external.DefaultDispatcher.UninstallAll(sess)
 		if err != nil {
 			return ctx.Replyf("Failed to uninstall plugins: %v", err)
 		}
@@ -115,14 +127,15 @@ func handlePluginUninstall(ctx *dispatch.Context) error {
 		return ctx.Replyf("Uninstalled %d external plugin(s): %s", len(removed), strings.Join(removed, ", "))
 	}
 
-	if err := external.DefaultDispatcher.Uninstall(targetName); err != nil {
+	if err := external.DefaultDispatcher.Uninstall(targetName, sess); err != nil {
 		return ctx.Replyf("Plugin uninstall failed: %v", err)
 	}
 	return ctx.Replyf("External plugin %q uninstalled.", targetName)
 }
 
 func handlePluginList(ctx *dispatch.Context) error {
-	plugins, err := external.DefaultDispatcher.List()
+	sess := getSession(ctx)
+	plugins, err := external.DefaultDispatcher.List(sess)
 	if err != nil {
 		return ctx.Replyf("Failed to list plugins: %v", err)
 	}

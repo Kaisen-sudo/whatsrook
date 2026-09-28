@@ -92,24 +92,35 @@ func WithPluginDir(dir string) Option {
 }
 
 // PluginDir returns the resolved directory where external plugin binaries are stored.
-func (d *Dispatcher) PluginDir() (string, error) {
+// If session is provided and non-empty, the directory is scoped to that session (~/.whatsrook/sessions/<session>/plugins).
+func (d *Dispatcher) PluginDir(session ...string) (string, error) {
 	if d.pluginDir != "" {
+		if len(session) > 0 && session[0] != "" {
+			return filepath.Join(d.pluginDir, "sessions", session[0], "plugins"), nil
+		}
 		return d.pluginDir, nil
 	}
 	if env := os.Getenv(DefaultPluginDirEnv); env != "" {
-		return filepath.Clean(env), nil
+		base := filepath.Clean(env)
+		if len(session) > 0 && session[0] != "" {
+			return filepath.Join(base, "sessions", session[0], "plugins"), nil
+		}
+		return base, nil
 	}
 	baseDir := whatsrook.DefaultDataDir()
+	if len(session) > 0 && session[0] != "" {
+		return filepath.Join(baseDir, "sessions", session[0], "plugins"), nil
+	}
 	return filepath.Join(baseDir, "plugins"), nil
 }
 
 // PluginPath returns the absolute filesystem path for a given plugin name (native executable).
-func (d *Dispatcher) PluginPath(name string) (string, error) {
+func (d *Dispatcher) PluginPath(name string, session ...string) (string, error) {
 	name = strings.ToLower(strings.TrimSpace(name))
 	if !validPluginNamePattern.MatchString(name) {
 		return "", fmt.Errorf("invalid plugin name %q: must be alphanumeric (1-64 chars)", name)
 	}
-	dir, err := d.PluginDir()
+	dir, err := d.PluginDir(session...)
 	if err != nil {
 		return "", err
 	}
@@ -130,8 +141,8 @@ func (d *Dispatcher) PluginPath(name string) (string, error) {
 }
 
 // IsInstalled returns true if an executable native binary exists for the given name.
-func (d *Dispatcher) IsInstalled(name string) bool {
-	path, err := d.PluginPath(name)
+func (d *Dispatcher) IsInstalled(name string, session ...string) bool {
+	path, err := d.PluginPath(name, session...)
 	if err != nil {
 		return false
 	}
@@ -152,11 +163,11 @@ func (d *Dispatcher) IsOfficial(name string) bool {
 }
 
 // IsPublic returns true if the plugin is marked public (all official plugins or manifest is_public: true).
-func (d *Dispatcher) IsPublic(name string) bool {
+func (d *Dispatcher) IsPublic(name string, session ...string) bool {
 	if d.IsOfficial(name) {
 		return true
 	}
-	path, err := d.PluginPath(name)
+	path, err := d.PluginPath(name, session...)
 	if err != nil {
 		return false
 	}
@@ -165,7 +176,10 @@ func (d *Dispatcher) IsPublic(name string) bool {
 }
 
 // sessionKey creates a composite lookup key for active live sessions.
-func (d *Dispatcher) sessionKey(chatJID, pluginName string) string {
+func (d *Dispatcher) sessionKey(chatJID, pluginName string, session ...string) string {
+	if len(session) > 0 && session[0] != "" {
+		return session[0] + ":" + chatJID + ":" + pluginName
+	}
 	return chatJID + ":" + pluginName
 }
 
@@ -182,8 +196,8 @@ func (d *Dispatcher) unregisterSession(key string) {
 }
 
 // CancelSession terminates any running streaming session for a chat and plugin.
-func (d *Dispatcher) CancelSession(chatJID, pluginName string) bool {
-	key := d.sessionKey(chatJID, pluginName)
+func (d *Dispatcher) CancelSession(chatJID, pluginName string, session ...string) bool {
+	key := d.sessionKey(chatJID, pluginName, session...)
 	d.sessionsMu.Lock()
 	defer d.sessionsMu.Unlock()
 	sess, ok := d.sessions[key]
@@ -198,11 +212,15 @@ func (d *Dispatcher) CancelSession(chatJID, pluginName string) bool {
 
 // Dispatch executes an external plugin command asynchronously, routing rich context and handling responses.
 func (d *Dispatcher) Dispatch(ctx context.Context, client *whatsmeow.Client, evt *events.Message, name string, args []string, rawArgs string) bool {
-	path, err := d.PluginPath(name)
+	var session string
+	if client != nil && client.Store != nil && client.Store.ID != nil {
+		session = client.Store.ID.User
+	}
+	path, err := d.PluginPath(name, session)
 	if err != nil {
 		return false
 	}
-	if !d.IsInstalled(name) {
+	if !d.IsInstalled(name, session) {
 		return false
 	}
 
@@ -211,7 +229,7 @@ func (d *Dispatcher) Dispatch(ctx context.Context, client *whatsmeow.Client, evt
 	// Check for stop / cancel requests
 	isCancelRequest := len(args) > 0 && isStopKeyword(args[0])
 	if isCancelRequest {
-		if d.CancelSession(chatKey, name) {
+		if d.CancelSession(chatKey, name, session) {
 			go func() {
 				_ = (&whatsrook.PluginContext{
 					Ctx: context.Background(), Client: client, Evt: evt,
@@ -230,7 +248,7 @@ func (d *Dispatcher) Dispatch(ctx context.Context, client *whatsmeow.Client, evt
 	}
 
 	// Cancel existing session for this chat & command if already running
-	d.CancelSession(chatKey, name)
+	d.CancelSession(chatKey, name, session)
 
 	// Launch execution in a non-blocking background goroutine
 	go func() {
@@ -357,13 +375,13 @@ func (d *Dispatcher) Dispatch(ctx context.Context, client *whatsmeow.Client, evt
 }
 
 // Install downloads or copies an executable into the managed plugin directory and creates its metadata manifest.
-func (d *Dispatcher) Install(ctx context.Context, name string, source string) error {
+func (d *Dispatcher) Install(ctx context.Context, name string, source string, session ...string) error {
 	name = strings.ToLower(strings.TrimSpace(name))
 	if !validPluginNamePattern.MatchString(name) {
 		return fmt.Errorf("invalid plugin name %q: must be alphanumeric (1-64 characters)", name)
 	}
 
-	dir, err := d.PluginDir()
+	dir, err := d.PluginDir(session...)
 	if err != nil {
 		return err
 	}
@@ -486,7 +504,7 @@ func (d *Dispatcher) Install(ctx context.Context, name string, source string) er
 }
 
 // InstallAll downloads and installs all official plugins in parallel using concurrent workers.
-func (d *Dispatcher) InstallAll(ctx context.Context) ([]string, []string) {
+func (d *Dispatcher) InstallAll(ctx context.Context, session ...string) ([]string, []string) {
 	type result struct {
 		name string
 		err  error
@@ -503,7 +521,7 @@ func (d *Dispatcher) InstallAll(ctx context.Context) ([]string, []string) {
 				resChan <- result{name: plugName, err: err}
 				return
 			}
-			err = d.Install(ctx, plugName, url)
+			err = d.Install(ctx, plugName, url, session...)
 			resChan <- result{name: plugName, err: err}
 		}(name)
 	}
@@ -527,15 +545,15 @@ func (d *Dispatcher) InstallAll(ctx context.Context) ([]string, []string) {
 }
 
 // Uninstall removes an installed plugin binary and its JSON manifest.
-func (d *Dispatcher) Uninstall(name string) error {
-	path, err := d.PluginPath(name)
+func (d *Dispatcher) Uninstall(name string, session ...string) error {
+	path, err := d.PluginPath(name, session...)
 	if err != nil {
 		return err
 	}
-	if !d.IsInstalled(name) {
+	if !d.IsInstalled(name, session...) {
 		return fmt.Errorf("plugin %q is not installed", name)
 	}
-	dir, _ := d.PluginDir()
+	dir, _ := d.PluginDir(session...)
 	_ = os.Remove(path)
 	_ = os.Remove(filepath.Join(dir, name))
 	_ = os.Remove(filepath.Join(dir, name+".exe"))
@@ -544,14 +562,14 @@ func (d *Dispatcher) Uninstall(name string) error {
 }
 
 // UninstallAll removes all currently installed external plugins.
-func (d *Dispatcher) UninstallAll() ([]string, error) {
-	plugins, err := d.List()
+func (d *Dispatcher) UninstallAll(session ...string) ([]string, error) {
+	plugins, err := d.List(session...)
 	if err != nil {
 		return nil, err
 	}
 	var removed []string
 	for _, plug := range plugins {
-		if err := d.Uninstall(plug.Name); err == nil {
+		if err := d.Uninstall(plug.Name, session...); err == nil {
 			removed = append(removed, plug.Name)
 		}
 	}
@@ -559,8 +577,8 @@ func (d *Dispatcher) UninstallAll() ([]string, error) {
 }
 
 // List returns all currently installed external plugins sorted alphabetically.
-func (d *Dispatcher) List() ([]PluginInfo, error) {
-	dir, err := d.PluginDir()
+func (d *Dispatcher) List(session ...string) ([]PluginInfo, error) {
+	dir, err := d.PluginDir(session...)
 	if err != nil {
 		return nil, err
 	}

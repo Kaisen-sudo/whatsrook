@@ -950,7 +950,7 @@ func handleReconfigure(ctx *dispatch.Context) error {
 }
 
 func GetSessionAuthDir(client *whatsmeow.Client) string {
-	baseAuth := "sessions"
+	baseAuth := filepath.Join(whatsrook.DefaultDataDir(), "sessions")
 	if client != nil && client.Store != nil {
 		if client.Store.ID != nil && client.Store.ID.User != "" {
 			return filepath.Join(baseAuth, client.Store.ID.User)
@@ -1996,15 +1996,19 @@ func handleSetCmd(ctx *dispatch.Context) error {
 
 	rawBaseCmd := strings.ToLower(fields[0])
 	cleanBaseCmd := strings.TrimLeft(rawBaseCmd, "./!#$")
+	var sess string
+	if ctx.Client != nil && ctx.Client.Store != nil && ctx.Client.Store.ID != nil {
+		sess = ctx.Client.Store.ID.User
+	}
 
 	baseCmd := cleanBaseCmd
 	_, existsNative := dispatch.Get(baseCmd)
-	isExternal := external.DefaultDispatcher.IsInstalled(baseCmd)
+	isExternal := external.DefaultDispatcher.IsInstalled(baseCmd, sess)
 
 	if !existsNative && !isExternal {
 		baseCmd = rawBaseCmd
 		_, existsNative = dispatch.Get(baseCmd)
-		isExternal = external.DefaultDispatcher.IsInstalled(baseCmd)
+		isExternal = external.DefaultDispatcher.IsInstalled(baseCmd, sess)
 	}
 
 	if !existsNative && !isExternal {
