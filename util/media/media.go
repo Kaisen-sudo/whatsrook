@@ -158,35 +158,21 @@ func extractWaveformAndDuration(pcmBytes []byte, sampleRate int) (uint32, []byte
 	}
 
 	const numBins = 64
-	type binData struct {
-		sum   float64
-		count uint32
-	}
-	bins := make([]binData, numBins)
-
-	const scaleS16 = 1.0 / 32768.0
 	numSamplesU64 := uint64(numSamples)
-
-	for i := range numSamples {
-		sampleVal := int16(uint16(pcmBytes[i*2]) | uint16(pcmBytes[i*2+1])<<8)
-		sampleAbs := math.Abs(float64(sampleVal) * scaleS16)
-
-		binIdx := int((uint64(i) * numBins) / numSamplesU64)
-		if binIdx >= numBins {
-			binIdx = numBins - 1
-		}
-		bins[binIdx].sum += sampleAbs
-		bins[binIdx].count++
-	}
-
 	averages := make([]float64, numBins)
 	var maxAvg float64
-	for i := range numBins {
-		if bins[i].count > 0 {
-			averages[i] = bins[i].sum / float64(bins[i].count)
-		}
-		if averages[i] > maxAvg {
-			maxAvg = averages[i]
+
+	for b := range numBins {
+		start := (uint64(b)*numSamplesU64 + 63) / numBins
+		end := (uint64(b+1)*numSamplesU64 + 63) / numBins
+		count := end - start
+		if count > 0 {
+			sum := sumAbsPCM16(pcmBytes[start*2 : end*2])
+			avg := float64(sum) / float64(count)
+			averages[b] = avg
+			if avg > maxAvg {
+				maxAvg = avg
+			}
 		}
 	}
 
