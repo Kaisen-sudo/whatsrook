@@ -10,7 +10,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -77,7 +80,16 @@ func (fs *FrameSocket) Close(code websocket.StatusCode) {
 	if code > 0 {
 		err := conn.Close(code, "")
 		if err != nil {
-			fs.log.Warnf("Error sending close to websocket: %v", err)
+			if errors.Is(err, io.EOF) ||
+				strings.Contains(err.Error(), "EOF") ||
+				errors.Is(err, net.ErrClosed) ||
+				strings.Contains(err.Error(), "closed network connection") ||
+				websocket.CloseStatus(err) == websocket.StatusNormalClosure ||
+				websocket.CloseStatus(err) == websocket.StatusGoingAway {
+				fs.log.Debugf("WebSocket connection closed cleanly: %v", err)
+			} else {
+				fs.log.Warnf("Error sending close to websocket: %v", err)
+			}
 		}
 	} else {
 		err := conn.CloseNow()

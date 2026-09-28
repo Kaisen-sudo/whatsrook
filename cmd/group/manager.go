@@ -210,15 +210,25 @@ func (gm *GroupManager) WarmupDevices(ctx context.Context, cli *whatsmeow.Client
 	totalCached := 0
 	var allDeviceJIDs []types.JID
 	for i := 0; i < len(uniqueJIDs); i += batchSize {
+		if ctx.Err() != nil {
+			return
+		}
 		end := min(i+batchSize, len(uniqueJIDs))
 		batch := uniqueJIDs[i:end]
 		devices, err := cli.GetUserDevices(ctx, batch)
 		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
 			logger.Debug("GroupManager: device warmup batch error", "batch_start", i, "err", err)
 		} else {
 			totalCached += len(devices)
 			allDeviceJIDs = append(allDeviceJIDs, devices...)
 		}
+	}
+
+	if ctx.Err() != nil {
+		return
 	}
 
 	// Pre-warm in-memory L1 Signal sessions and identities for all companion devices
