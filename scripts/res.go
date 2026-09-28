@@ -49,28 +49,24 @@ func runRes(args []string) error {
 
 	iconPath := filepath.Join(rootDir, "tmp", "logo.png")
 	if _, err := os.Stat(iconPath); err != nil {
-		if aPath := filepath.Join(rootDir, "assets", "logo.png"); fileExists(aPath) {
-			iconPath = aPath
-		} else {
-			if err := os.MkdirAll(filepath.Dir(iconPath), 0755); err != nil {
-				return fmt.Errorf("failed to create tmp dir: %w", err)
-			}
-			fmt.Printf("Fetching Windows PE icon from %s...\n", r2LogoURL)
-			resp, err := http.Get(r2LogoURL)
-			if err != nil {
-				return fmt.Errorf("failed to fetch icon from R2: %w", err)
-			}
-			defer resp.Body.Close()
-			if resp.StatusCode != http.StatusOK {
-				return fmt.Errorf("failed to fetch icon from R2: HTTP %d", resp.StatusCode)
-			}
-			data, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return fmt.Errorf("failed to read icon data: %w", err)
-			}
-			if err := os.WriteFile(iconPath, data, 0644); err != nil {
-				return fmt.Errorf("failed to cache icon to %s: %w", iconPath, err)
-			}
+		if err := os.MkdirAll(filepath.Dir(iconPath), 0755); err != nil {
+			return fmt.Errorf("failed to create tmp dir: %w", err)
+		}
+		fmt.Printf("Fetching Windows PE icon from %s...\n", r2LogoURL)
+		resp, err := http.Get(r2LogoURL)
+		if err != nil {
+			return fmt.Errorf("failed to fetch icon from R2: %w", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("failed to fetch icon from R2: HTTP %d", resp.StatusCode)
+		}
+		data, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("failed to read icon data: %w", err)
+		}
+		if err := os.WriteFile(iconPath, data, 0644); err != nil {
+			return fmt.Errorf("failed to cache icon to %s: %w", iconPath, err)
 		}
 	}
 

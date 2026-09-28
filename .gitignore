@@ -9,3 +9,4 @@ sessions/
 
 cmd/__debug_bin*
 .aider*
+tmp/
