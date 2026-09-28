@@ -1,6 +1,6 @@
 ![whatsrook](./assets/logo.svg)
 
-_WhatsRook is an automated WhatsApp client with built-in utilities for managing chats, scheduling, and automation._
+WhatsRook is an automated WhatsApp client with built-in utilities for managing chats, scheduling, and automation.
 
 ## Deployments
 
