@@ -76,12 +76,7 @@ func fcbGains() *fcbGainsT {
 }
 
 func celpDot(a, b []float32, l int) float32 {
-	// Source of truth: https://github.com/oxidezap/whatsapp-rust/blob/ed12f359a086b28e807ba236f0977af1000859fe/wacore/src/voip/mlow/smpl_celpdec.rs#L79-L86
-	var r float32
-	for i := range l {
-		r += a[i] * b[i]
-	}
-	return r
+	return dotProdF32(a, b, l)
 }
 
 // lpcInterpol: per-subframe interpolation of the LSF between prevLsf and lsf, then

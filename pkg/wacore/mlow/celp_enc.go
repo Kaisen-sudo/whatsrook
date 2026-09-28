@@ -98,21 +98,11 @@ var celpFcbgVDeltaDcmf = [fcbgVDeltaN]uint8{
 // --- leaf math helpers ------------------------------------------------------
 
 func celpDotProd(a, b []float32, l int) float32 {
-	// Source of truth: https://github.com/oxidezap/whatsapp-rust/blob/ed12f359a086b28e807ba236f0977af1000859fe/wacore/src/voip/mlow/smpl_celp.rs#L202-L208
-	var r float32
-	for i := range l {
-		r += a[i] * b[i]
-	}
-	return r
+	return dotProdF32(a, b, l)
 }
 
 func celpNrg(x []float32, n int) float32 {
-	// Source of truth: https://github.com/oxidezap/whatsapp-rust/blob/ed12f359a086b28e807ba236f0977af1000859fe/wacore/src/voip/mlow/smpl_celp.rs#L211-L217
-	var s float32
-	for k := range n {
-		s += x[k] * x[k]
-	}
-	return s
+	return dotProdF32(x, x, n)
 }
 
 func celpReverse(x []float32, l int) {
