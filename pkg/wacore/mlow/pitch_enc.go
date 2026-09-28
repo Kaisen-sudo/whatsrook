@@ -193,19 +193,11 @@ func peGetMaxiK(x []float32, k int) []int {
 }
 
 func peDotProd(a, b []float32, n int) float32 {
-	var r float32
-	for i := range n {
-		r += a[i] * b[i]
-	}
-	return r
+	return dotProdF32(a, b, n)
 }
 
 func peDotProd40(a, b []float32) float32 {
-	var r float32
-	for i := range 40 {
-		r += a[i] * b[i]
-	}
-	return r
+	return dotProdF32(a, b, 40)
 }
 
 // peCalcE1Inner is smpl_calc_E1: running energy of lag_subfrlen-length windows.
