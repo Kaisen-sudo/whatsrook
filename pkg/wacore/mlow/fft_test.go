@@ -40,9 +40,8 @@ func BenchmarkRFFTForward576(b *testing.B) {
 		timeBuf[i] = float32(i % 100)
 	}
 	f := make([]float32, 576)
-	b.ResetTimer()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		rfftForwardOrdered(timeBuf, f)
 	}
 }
@@ -53,9 +52,8 @@ func BenchmarkRFFTForward512(b *testing.B) {
 		timeBuf[i] = float32(i % 100)
 	}
 	f := make([]float32, 512)
-	b.ResetTimer()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		rfftForwardOrdered(timeBuf, f)
 	}
 }
@@ -66,9 +64,8 @@ func BenchmarkButterflyGeneric_288(b *testing.B) {
 	sub1 := make([]cpx, m)
 	tw := make([]cpx, m)
 	out := make([]cpx, 2*m)
-	b.ResetTimer()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		fftButterfly2_generic(out, sub0, sub1, tw, m)
 	}
 }
@@ -79,9 +76,8 @@ func BenchmarkButterflyAsm_288(b *testing.B) {
 	sub1 := make([]cpx, m)
 	tw := make([]cpx, m)
 	out := make([]cpx, 2*m)
-	b.ResetTimer()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		fftButterfly2(out, sub0, sub1, tw, m)
 	}
 }

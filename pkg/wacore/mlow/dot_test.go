@@ -63,7 +63,7 @@ func init() {
 
 func BenchmarkDotProd_Go_40(b *testing.B) {
 	var s float32
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		s += dotProdGoRef(benchVecA, benchVecB, 40)
 	}
 	benchSink = s
@@ -71,7 +71,7 @@ func BenchmarkDotProd_Go_40(b *testing.B) {
 
 func BenchmarkDotProd_Asm_40(b *testing.B) {
 	var s float32
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		s += dotProdF32(benchVecA, benchVecB, 40)
 	}
 	benchSink = s
@@ -79,7 +79,7 @@ func BenchmarkDotProd_Asm_40(b *testing.B) {
 
 func BenchmarkDotProd_Go_320(b *testing.B) {
 	var s float32
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		s += dotProdGoRef(benchVecA, benchVecB, 320)
 	}
 	benchSink = s
@@ -87,7 +87,7 @@ func BenchmarkDotProd_Go_320(b *testing.B) {
 
 func BenchmarkDotProd_Asm_320(b *testing.B) {
 	var s float32
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		s += dotProdF32(benchVecA, benchVecB, 320)
 	}
 	benchSink = s
