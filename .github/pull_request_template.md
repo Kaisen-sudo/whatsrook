@@ -16,7 +16,7 @@ Please provide a summary of the changes introduced by this pull request and the 
 
 ## Checklist
 
-- [ ] I have read the [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) guidelines.
+- [ ] I have read the [CONTRIBUTING.md](docs/CONTRIBUTING.md) and [AGENTS.md](docs/AGENTS.md) guidelines.
 - [ ] My code follows the code style and package layering of this project.
 - [ ] I have run `task fmt` to format and vet all Go files.
 - [ ] I have run `task test` and all existing & new tests pass.

@@ -16,7 +16,7 @@ Add `whatsrook-sdk` to your `Cargo.toml`:
 whatsrook-sdk = "0.1"
 ```
 
-External plugins are standalone binaries. WhatsRook spawns them as child processes, writes a JSON request payload to `stdin`, and reads newline-delimited JSON action frames from `stdout`. See [How It Works](#how-it-works) for the full protocol, and the [Plugin Development Guide](../EXTERNAL_PLUGIN.md) for installation and deployment.
+External plugins are standalone binaries. WhatsRook spawns them as child processes, writes a JSON request payload to `stdin`, and reads newline-delimited JSON action frames from `stdout`. See [How It Works](#how-it-works) for the full protocol, and the [Plugin Development Guide](../../docs/EXTERNAL_PLUGIN.md) for installation and deployment.
 
 ## Features
 
@@ -187,7 +187,7 @@ If you want to help make this project better, please take the time to read the [
 
 ## Acknowledgements
 
-whatsrook-sdk is part of the [WhatsRook](https://github.com/Thruqe/whatsrook) ecosystem. The IPC protocol it implements is defined by the WhatsRook runtime and its [external plugin engine](https://github.com/Thruqe/whatsrook/blob/master/EXTERNAL_PLUGIN.md).
+whatsrook-sdk is part of the [WhatsRook](https://github.com/Thruqe/whatsrook) ecosystem. The IPC protocol it implements is defined by the WhatsRook runtime and its [external plugin engine](https://github.com/Thruqe/whatsrook/blob/master/docs/EXTERNAL_PLUGIN.md).
 
 ## Licensing
 

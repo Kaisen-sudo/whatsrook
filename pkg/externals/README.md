@@ -19,7 +19,7 @@ To install every official plugin in one go:
 .install all
 ```
 
-For prebuilt binaries, custom URLs, and building from source, see the [External Plugins Guide](../EXTERNAL_PLUGIN.md).
+For prebuilt binaries, custom URLs, and building from source, see the [External Plugins Guide](../../docs/EXTERNAL_PLUGIN.md).
 
 ## Plugins
 
@@ -55,11 +55,11 @@ For prebuilt binaries, custom URLs, and building from source, see the [External 
 | `.take` | `take` | Media | Re-packs sticker metadata — author and pack name |
 | `.media` | `media` | Media | Video/audio converter, audio extractor, and trimmer |
 
-Full usage examples and command reference: [External Plugins Guide](../EXTERNAL_PLUGIN.md)
+Full usage examples and command reference: [External Plugins Guide](../../docs/EXTERNAL_PLUGIN.md)
 
 ## Documentation
 
-Full architectural documentation and usage instructions are available in [EXTERNAL_PLUGIN.md](../EXTERNAL_PLUGIN.md):
+Full architectural documentation and usage instructions are available in [EXTERNAL_PLUGIN.md](../../docs/EXTERNAL_PLUGIN.md):
 
 - 📖 **Architecture & Protocol** &mdash; Stdin/stdout NDJSON wire protocol, Request schema, Action frames, and ACK loops.
 - 📦 **Installation Guide** &mdash; WhatsApp 1-click install (`.install <name>`), custom URLs, and local binaries.
@@ -83,7 +83,7 @@ Requires Rust stable (1.85+) and `ffmpeg` on `PATH` for media and sticker plugin
 
 ## Contributions
 
-Contributions follow the monorepo [Contributing Guidelines](../CONTRIBUTING.md) and [Architecture Guidelines](../AGENTS.md).
+Contributions follow the monorepo [Contributing Guidelines](../../docs/CONTRIBUTING.md) and [Architecture Guidelines](../../docs/AGENTS.md).
 
 ## Acknowledgements
 

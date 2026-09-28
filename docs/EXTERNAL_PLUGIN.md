@@ -2,7 +2,7 @@
 
 External plugins allow you to extend whatsrook with independently developed executable programs. A plugin can be written in any language (Rust, Go, Python, C, etc.), compiled into a standalone binary, installed into whatsrook, and used directly as a WhatsApp command.
 
-External plugins run as isolated child processes managed by the dedicated [`package external`](./util/external). They can perform virtually any action an internal plugin can do — sending rich media, polls, reactions, audio voice notes, stickers, documents, and real-time live message edits.
+External plugins run as isolated child processes managed by the dedicated [`package external`](../util/external). They can perform virtually any action an internal plugin can do — sending rich media, polls, reactions, audio voice notes, stickers, documents, and real-time live message edits.
 
 ## How It Works
 
@@ -187,7 +187,7 @@ _(Supports HTTP/HTTPS URLs or base64 data strings)._
 
 ---
 
-## Rust SDK Example ([`whatsrook-sdk`](./sdk))
+## Rust SDK Example ([`whatsrook-sdk`](../pkg/sdk))
 
 ```rust
 use whatsrook_sdk::{

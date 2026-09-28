@@ -14,9 +14,9 @@ WhatsRook is an automated WhatsApp client with built-in utilities for managing c
 
 Configuration is managed through environment variables; see the [sample environment file](./.env.example) for the supported settings.
 
-External plugins can be built independently and installed as executable commands. Read the [external plugin setup documentation](./EXTERNAL_PLUGIN.md) to learn how to create, build, install, and use them.
+External plugins can be built independently and installed as executable commands. Read the [external plugin setup documentation](./docs/EXTERNAL_PLUGIN.md) to learn how to create, build, install, and use them.
 
-If you want to install on your system, see the [Installation Guide](./INSTALLATION.md) to quickly install.
+If you want to install on your system, see the [Installation Guide](./docs/INSTALLATION.md) to quickly install.
 
 ## Features
 
@@ -33,9 +33,9 @@ If you want to install on your system, see the [Installation Guide](./INSTALLATI
 
 ## Contributions
 
-If you want to help make this project better, please take the time to read this contribution [doc](./CONTRIBUTING.md) and [fork](https://github.com/thruqe/whatsapp-go/fork) this repository. Then open a pull request with your changes.
+If you want to help make this project better, please take the time to read this contribution [doc](./docs/CONTRIBUTING.md) and [fork](https://github.com/thruqe/whatsapp-go/fork) this repository. Then open a pull request with your changes.
 
-If you are using any AI agent for assistance, please refer to the [AGENTS documentation](./AGENTS.md) Guide.
+If you are using any AI agent for assistance, please refer to the [AGENTS documentation](./docs/AGENTS.md) Guide.
 
 ## Acknowledgements
 

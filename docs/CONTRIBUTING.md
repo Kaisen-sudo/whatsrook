@@ -4,7 +4,7 @@ Welcome to whatsrook. These guidelines should be reviewed before submitting issu
 
 ## 1. Development Management
 
-All development workflows are managed through the [Taskfile](./Taskfile.yml):
+All development workflows are managed through the [Taskfile](../Taskfile.yml):
 
 | Task      | Command        | Description                                                         |
 | :-------- | :------------- | :------------------------------------------------------------------ |
