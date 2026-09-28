@@ -9,7 +9,7 @@ require (
 	github.com/rs/zerolog v1.35.1
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/tcolgate/mp3 v0.0.0-20170426193717-e79c5a46d300
-	go.mau.fi/whatsmeow v0.0.0-20260925162019-b3832c2bd1d1
+	go.mau.fi/whatsmeow v0.0.0-20260927171547-45cfce066cd2
 	go.uber.org/zap v1.28.0
 	go.uber.org/zap/exp v0.3.0
 	google.golang.org/protobuf v1.36.12

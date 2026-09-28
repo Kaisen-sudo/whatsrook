@@ -12,7 +12,7 @@ require (
 	github.com/rs/zerolog v1.35.1
 	github.com/tcolgate/mp3 v0.0.0-20170426193717-e79c5a46d300
 	go.mau.fi/util v0.10.1
-	go.mau.fi/whatsmeow v0.0.0-20260925162019-b3832c2bd1d1
+	go.mau.fi/whatsmeow v0.0.0-20260927171547-45cfce066cd2
 	modernc.org/sqlite v1.59.0
 	whatsrook v0.0.0-00010101000000-000000000000
 )
