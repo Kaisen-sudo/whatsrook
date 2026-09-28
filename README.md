@@ -5,26 +5,9 @@ _WhatsRook is an automated WhatsApp client with built-in utilities for managing 
 ## Deployments
 
 <div style="margin: 20px 0;">
-  <div style="margin-bottom: 20px;">
-    <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #5e5e5e;">Cryptographic Credentials</h4>
-    <a href="https://thruqe.github.io/whatsapp-go/" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; justify-content: center; background-color: #000000; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 999px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 15px; font-weight: 600; line-height: 1; letter-spacing: -0.01em;">
-      Get Session ID &rarr;
-    </a>
-  </div>
-
-  <div style="margin-bottom: 20px;">
-    <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #5e5e5e;">Cloud Hosting</h4>
-    <a href="https://heroku.com/deploy?template=https://github.com/thruqe/whatsapp-go">
-      <img src="https://www.herokucdn.com/deploy/button.svg" alt="Deploy to Heroku" />
-    </a>
-  </div>
-
-  <div>
-    <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #5e5e5e;">Cloud Development</h4>
-    <a href="https://codespaces.new/thruqe/whatsapp-go">
-      <img src="https://github.com/codespaces/badge.svg" alt="Open in GitHub Codespaces" />
-    </a>
-  </div>
+  <a href="https://thruqe.github.io/whatsapp-go/" target="_blank" rel="noopener noreferrer">
+    <img src="assets/button.svg" alt="Get Session ID" />
+  </a>
 </div>
 
 ## Usage
