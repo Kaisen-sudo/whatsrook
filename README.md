@@ -1,4 +1,4 @@
-![whatsrook](./assets/logo.svg)
+![whatsrook](https://pub-687f7ee583cf4f339cab34d2b3a3871d.r2.dev/logo.svg)
 
 WhatsRook is an automated WhatsApp client with built-in utilities for managing chats, scheduling, and automation.
 
@@ -6,7 +6,7 @@ WhatsRook is an automated WhatsApp client with built-in utilities for managing c
 
 <div style="margin: 20px 0;">
   <a href="https://thruqe.github.io/whatsapp-go/" target="_blank" rel="noopener noreferrer">
-    <img src="assets/button.svg" alt="Get Session ID" />
+    <img src="https://pub-687f7ee583cf4f339cab34d2b3a3871d.r2.dev/button.svg" alt="Get Session ID" />
   </a>
 </div>
 

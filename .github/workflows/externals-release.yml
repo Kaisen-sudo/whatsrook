@@ -5,7 +5,7 @@ on:
     branches:
       - master
     paths:
-      - "externals/**"
+      - "pkg/externals/**"
     tags:
       - "externals-v*"
   workflow_dispatch:
@@ -49,7 +49,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: externals
+        working-directory: pkg/externals
 
     steps:
       - name: Checkout repository
@@ -110,7 +110,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.name }}
-          path: externals/dist/*
+          path: pkg/externals/dist/*
           if-no-files-found: error
 
   release:

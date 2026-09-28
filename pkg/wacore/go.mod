@@ -2,7 +2,7 @@ module go.mau.fi/whatsmeow
 
 go 1.27.0
 
-replace whatsrook => ../
+replace whatsrook => ../../
 
 retract (
 	v0.1.1 // Retraction carrier only; use @main.

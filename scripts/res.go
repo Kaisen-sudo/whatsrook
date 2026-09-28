@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,6 +11,8 @@ import (
 	"strings"
 	"time"
 )
+
+const r2LogoURL = "https://pub-687f7ee583cf4f339cab34d2b3a3871d.r2.dev/logo.png"
 
 func runRes(args []string) error {
 	rootDir, err := findRepoRoot()
@@ -43,9 +47,31 @@ func runRes(args []string) error {
 	}
 	fileVersion := fmt.Sprintf("%d.%d.0.0", yr, mo)
 
-	iconPath := filepath.Join(rootDir, "assets", "logo.png")
+	iconPath := filepath.Join(rootDir, "tmp", "logo.png")
 	if _, err := os.Stat(iconPath); err != nil {
-		return fmt.Errorf("icon not found at %s: %w", iconPath, err)
+		if aPath := filepath.Join(rootDir, "assets", "logo.png"); fileExists(aPath) {
+			iconPath = aPath
+		} else {
+			if err := os.MkdirAll(filepath.Dir(iconPath), 0755); err != nil {
+				return fmt.Errorf("failed to create tmp dir: %w", err)
+			}
+			fmt.Printf("Fetching Windows PE icon from %s...\n", r2LogoURL)
+			resp, err := http.Get(r2LogoURL)
+			if err != nil {
+				return fmt.Errorf("failed to fetch icon from R2: %w", err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				return fmt.Errorf("failed to fetch icon from R2: HTTP %d", resp.StatusCode)
+			}
+			data, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return fmt.Errorf("failed to read icon data: %w", err)
+			}
+			if err := os.WriteFile(iconPath, data, 0644); err != nil {
+				return fmt.Errorf("failed to cache icon to %s: %w", iconPath, err)
+			}
+		}
 	}
 
 	cmdDir := filepath.Join(rootDir, "cmd")

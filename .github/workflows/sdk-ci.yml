@@ -4,12 +4,12 @@ on:
   push:
     branches: [master]
     paths:
-      - "sdk/**"
+      - "pkg/sdk/**"
       - ".github/workflows/sdk-ci.yml"
   pull_request:
     branches: [master]
     paths:
-      - "sdk/**"
+      - "pkg/sdk/**"
       - ".github/workflows/sdk-ci.yml"
   workflow_dispatch:
 
@@ -28,7 +28,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: sdk
+        working-directory: pkg/sdk
 
     steps:
       - uses: actions/checkout@v4
@@ -44,8 +44,8 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            sdk/target
-          key: ${{ runner.os }}-cargo-sdk-${{ hashFiles('sdk/**/Cargo.lock', 'sdk/**/Cargo.toml') }}
+            pkg/sdk/target
+          key: ${{ runner.os }}-cargo-sdk-${{ hashFiles('pkg/sdk/**/Cargo.lock', 'pkg/sdk/**/Cargo.toml') }}
           restore-keys: ${{ runner.os }}-cargo-sdk-
 
       - name: Format check

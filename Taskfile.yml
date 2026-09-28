@@ -19,13 +19,14 @@ tasks:
     cmds:
       - go mod download
       - go mod tidy
+      - cd pkg/wacore && go mod download && go mod tidy
       - cd cmd && go mod download && go mod tidy
 
   fix:
     desc: Apply go fix modernizers across all modules
     cmds:
       - go fix ./...
-      - cd lib && go fix ./...
+      - cd pkg/wacore && go fix ./...
       - cd cmd && go fix ./...
 
   fmt:
@@ -33,18 +34,18 @@ tasks:
     cmds:
       - go fmt ./...
       - gofmt -w -s .
-      - cd lib && go fmt ./...
-      - cd lib && gofmt -w -s .
+      - cd pkg/wacore && go fmt ./...
+      - cd pkg/wacore && gofmt -w -s .
       - cd cmd && go fmt ./...
       - cd cmd && gofmt -w -s .
       - go vet ./...
-      - cd lib && go vet ./...
+      - cd pkg/wacore && go vet ./...
       - cd cmd && go vet ./...
-      - command -v staticcheck >/dev/null 2>&1 && staticcheck ./... || ([ -x "$(go env GOPATH)/bin/staticcheck" ] && "$(go env GOPATH)/bin/staticcheck" ./...) || true
-      - cd lib && (command -v staticcheck >/dev/null 2>&1 && staticcheck ./... || ([ -x "$(go env GOPATH)/bin/staticcheck" ] && "$(go env GOPATH)/bin/staticcheck" ./...) || true)
-      - cd cmd && (command -v staticcheck >/dev/null 2>&1 && staticcheck ./... || ([ -x "$(go env GOPATH)/bin/staticcheck" ] && "$(go env GOPATH)/bin/staticcheck" ./...) || true)
-      - cd sdk && (command -v cargo >/dev/null 2>&1 && cargo fmt --all || true)
-      - cd externals && (command -v cargo >/dev/null 2>&1 && cargo fmt --all || true)
+      - staticcheck ./...
+      - cd pkg/wacore && staticcheck ./...
+      - cd cmd && staticcheck ./...
+      - cd pkg/sdk && (command -v cargo >/dev/null 2>&1 && cargo fmt --all || true)
+      - cd pkg/externals && (command -v cargo >/dev/null 2>&1 && cargo fmt --all || true)
 
   deadcode:
     desc: Analyze unreachable functions across the codebase
@@ -57,16 +58,18 @@ tasks:
       - |
         PKGS=$(go list -f '{{"{{"}}if .TestGoFiles{{"}}"}}{{"{{"}}.ImportPath{{"}}"}}{{"{{"}}end{{"}}"}}' ./...)
         if [ -n "$PKGS" ]; then go test -v -timeout 120s $PKGS; fi
-      - cd lib && go test -v -timeout 60s ./...
+      - cd pkg/wacore && go test -v -timeout 60s ./...
       - cd cmd && go test -v -timeout 60s ./...
-      - cd sdk && (command -v cargo >/dev/null 2>&1 && cargo test || true)
-      - cd externals && (command -v cargo >/dev/null 2>&1 && cargo test || true)
+      - cd pkg/sdk && (command -v cargo >/dev/null 2>&1 && cargo test || true)
+      - cd pkg/externals && (command -v cargo >/dev/null 2>&1 && cargo test || true)
 
   update:
     desc: Upgrade all Go dependencies
     cmds:
       - go get -u ./...
       - go mod tidy
+      - cd pkg/wacore && go get -u ./...
+      - cd pkg/wacore && go mod tidy
       - cd cmd && go get -u ./...
       - cd cmd && go mod tidy
 
@@ -76,17 +79,17 @@ tasks:
       - go -C scripts run . bump {{.cmd_ARGS}}
 
   proto:
-    desc: Compile and update all lib protobuf definitions
+    desc: Compile and update all wacore protobuf definitions
     cmds:
       - go -C scripts run . proto {{.cmd_ARGS}}
 
   proto:sync:
-    desc: Pull latest WAProto schema, split into modular lib/proto, and recompile
+    desc: Pull latest WAProto schema, split into modular pkg/wacore/proto, and recompile
     cmds:
       - go -C scripts run . proto --sync {{.cmd_ARGS}}
 
   res:
-    desc: Generate Windows binary resource metadata and icons from assets/logo.png
+    desc: Generate Windows binary resource metadata and icons from Cloudflare R2 logo
     cmds:
       - go -C scripts run . res
 
@@ -109,7 +112,7 @@ tasks:
   build:externals:
     desc: Build all Rust external plugin binaries
     cmds:
-      - cd externals && cargo build --release
+      - cd pkg/externals && cargo build --release
 
   build:web:
     desc: Build static web session generator application

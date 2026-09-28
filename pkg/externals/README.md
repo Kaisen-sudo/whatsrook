@@ -1,4 +1,4 @@
-![whatsrook](./assets/logo.svg)
+![whatsrook](https://pub-687f7ee583cf4f339cab34d2b3a3871d.r2.dev/logo.svg)
 
 _`whatsrook-externals` is the official suite of standalone external plugins for [WhatsRook](https://github.com/thruqe/whatsapp-go), built in Rust using [`whatsrook-sdk`](../sdk)._
 

@@ -4,11 +4,11 @@ on:
   push:
     branches: [master]
     paths:
-      - "externals/**"
+      - "pkg/externals/**"
   pull_request:
     branches: [master]
     paths:
-      - "externals/**"
+      - "pkg/externals/**"
   workflow_dispatch:
 
 jobs:
@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: externals
+        working-directory: pkg/externals
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -30,7 +30,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: externals -> target
+          workspaces: pkg/externals -> target
 
       - name: Check code formatting
         run: cargo fmt --all -- --check

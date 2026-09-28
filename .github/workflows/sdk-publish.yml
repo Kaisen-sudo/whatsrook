@@ -20,7 +20,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: sdk
+        working-directory: pkg/sdk
 
     steps:
       - uses: actions/checkout@v4
@@ -36,8 +36,8 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            sdk/target
-          key: ${{ runner.os }}-cargo-sdk-release-${{ hashFiles('sdk/**/Cargo.lock', 'sdk/**/Cargo.toml') }}
+            pkg/sdk/target
+          key: ${{ runner.os }}-cargo-sdk-release-${{ hashFiles('pkg/sdk/**/Cargo.lock', 'pkg/sdk/**/Cargo.toml') }}
 
       - name: Bump version in Cargo.toml
         if: ${{ inputs.version != '' }}

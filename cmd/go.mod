@@ -4,7 +4,7 @@ go 1.27.1
 
 replace whatsrook => ../
 
-replace go.mau.fi/whatsmeow => ../lib
+replace go.mau.fi/whatsmeow => ../pkg/wacore
 
 require (
 	github.com/coder/websocket v1.8.15
