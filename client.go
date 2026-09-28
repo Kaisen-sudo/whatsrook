@@ -25,9 +25,12 @@ import (
 	_ "modernc.org/sqlite"
 
 	"whatsrook/util"
+	"whatsrook/util/botctx"
 	"whatsrook/util/cache"
 	"whatsrook/util/logger"
+	"whatsrook/util/message"
 	"whatsrook/util/qr"
+	"whatsrook/util/send"
 )
 
 type ClientType int
@@ -781,4 +784,134 @@ var (
 	WriteStickerMetadata = util.WriteStickerMetadata
 	EncodePNG            = qr.EncodePNG
 	StartQRServer        = qr.StartServer
+)
+
+// PluginContext captures the invocation execution environment for external/native plugin actions.
+type PluginContext = botctx.PluginContext
+
+// Loader represents a no-op loader retained for interface compatibility.
+type Loader = botctx.Loader
+
+// SettingGetter retrieves a setting value for a client and key from the database store.
+type SettingGetter = botctx.SettingGetter
+
+// SettingSetter updates a setting value for a client and key in the database store.
+type SettingSetter = botctx.SettingSetter
+
+// SettingDeleter removes a setting value for a client and key from the database store.
+type SettingDeleter = botctx.SettingDeleter
+
+// RecentMessageCache keeps an in-memory cache of recent incoming message events per JID.
+type RecentMessageCache = message.RecentMessageCache
+
+// AlbumMediaItem represents a media payload item to be bundled in a WhatsApp album.
+type AlbumMediaItem = send.AlbumMediaItem
+
+// Sender encapsulates message sending capabilities.
+type Sender = send.Sender
+
+var (
+	GlobalSettingGetter  SettingGetter
+	GlobalSettingSetter  SettingSetter
+	GlobalSettingDeleter SettingDeleter
+)
+
+func init() {
+	botctx.GlobalSettingGetter = func(ctx context.Context, client *whatsmeow.Client, key string) (string, error) {
+		if GlobalSettingGetter != nil {
+			return GlobalSettingGetter(ctx, client, key)
+		}
+		return "", nil
+	}
+	botctx.GlobalSettingSetter = func(ctx context.Context, client *whatsmeow.Client, key, value string) error {
+		if GlobalSettingSetter != nil {
+			return GlobalSettingSetter(ctx, client, key, value)
+		}
+		return nil
+	}
+	botctx.GlobalSettingDeleter = func(ctx context.Context, client *whatsmeow.Client, key string) error {
+		if GlobalSettingDeleter != nil {
+			return GlobalSettingDeleter(ctx, client, key)
+		}
+		return nil
+	}
+}
+
+var (
+	// Text formatting re-exports
+	Bold         = botctx.Bold
+	Boldf        = botctx.Boldf
+	Italic       = botctx.Italic
+	Italicf      = botctx.Italicf
+	Code         = botctx.Code
+	Codef        = botctx.Codef
+	CodeBlock    = botctx.CodeBlock
+	Strike       = botctx.Strike
+	Strikef      = botctx.Strikef
+	Quote        = botctx.Quote
+	Quotef       = botctx.Quotef
+	NewText      = botctx.NewText
+	Sprintf      = botctx.Sprintf
+	CancelLoader = botctx.CancelLoader
+
+	// Message extraction and processing re-exports
+	GetMediaType                 = message.GetMediaType
+	ExtractMessageText           = message.ExtractMessageText
+	ExtractTextFromProto         = message.ExtractTextFromProto
+	ExtractMediaFromEvent        = message.ExtractMediaFromEvent
+	ExtractMedia                 = message.ExtractMedia
+	UnwrapMessageProto           = message.UnwrapMessageProto
+	GetContextInfoFromProto      = message.GetContextInfoFromProto
+	AttachContextInfo            = message.AttachContextInfo
+	StripContextInfo             = message.StripContextInfo
+	IsViewOnceMessage            = message.IsViewOnceMessage
+	ExtractViewOnceMessage       = message.ExtractViewOnceMessage
+	UnwrapAndSendViewOnceMessage = message.UnwrapAndSendViewOnceMessage
+	RemoveEmojis                 = message.RemoveEmojis
+	FormatTextResponseRaw        = message.FormatTextResponseRaw
+	EncodeProtoMessage           = message.EncodeProtoMessage
+	DecodeProtoMessage           = message.DecodeProtoMessage
+	RecordRecentMessage          = message.RecordRecentMessage
+	GetRecentMessageForJID       = message.GetRecentMessageForJID
+	GlobalRecentMessages         = message.GlobalRecentMessages
+
+	// Context, permission, and resolution re-exports
+	IsSudoRaw              = botctx.IsSudoRaw
+	IsAdminRaw             = botctx.IsAdminRaw
+	IsBotAdminRaw          = botctx.IsBotAdminRaw
+	IsSameUserRaw          = botctx.IsSameUserRaw
+	ParticipantMatchesUser = botctx.ParticipantMatchesUser
+	ResolveMentionJIDs     = botctx.ResolveMentionJIDs
+	ResolveMentionRaw      = botctx.ResolveMentionRaw
+	ResolveContactName     = botctx.ResolveContactName
+	GetClientSetting       = botctx.GetClientSetting
+	PutClientSetting       = botctx.PutClientSetting
+	DeleteClientSetting    = botctx.DeleteClientSetting
+
+	// Message sending re-exports
+	NewSender                = send.New
+	ResolveMentionJIDStrings = send.ResolveMentionJIDStrings
+	SendText                 = send.Text
+	SendTextWithID           = send.TextWithID
+	SendTextWithMentions     = send.TextWithMentions
+	SendReply                = send.Reply
+	SendReplyWithID          = send.ReplyWithID
+	SendReplyWithMentions    = send.ReplyWithMentions
+	SendImage                = send.Image
+	SendImageWithMentions    = send.ImageWithMentions
+	SendVideo                = send.Video
+	SendVideoGif             = send.VideoGif
+	SendVideoWithMentions    = send.VideoWithMentions
+	SendAudio                = send.Audio
+	SendDocument             = send.Document
+	SendSticker              = send.Sticker
+	SendAlbum                = send.Album
+	SendReact                = send.React
+	SendReactMessage         = send.ReactMessage
+	SendEdit                 = send.Edit
+	SendDelete               = send.Delete
+
+	// Interactive component dispatch re-exports
+	DispatchListSelection = botctx.DispatchListSelection
+	DispatchPollVoteEvent = botctx.DispatchPollVoteEvent
 )
