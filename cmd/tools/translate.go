@@ -10,6 +10,8 @@ import (
 	"whatsrook/cmd/dispatch"
 	"whatsrook/util/httpx"
 	"whatsrook/util/logger"
+
+	"go.mau.fi/whatsmeow/types"
 )
 
 const TranslateSettingKey = "translate_lang"
@@ -135,7 +137,11 @@ func handleTranslate(ctx *dispatch.Context) error {
 			targetLang = info.LangCode
 			targetLangName = info.LangName
 			if found {
-				targetNote = fmt.Sprintf("Auto-detected from Owner's Country: %s (+%s)", info.CountryName, info.DialCode)
+				userOrOwner := "User"
+				if ctx.IsOwner() {
+					userOrOwner = "Owner"
+				}
+				targetNote = fmt.Sprintf("Auto-detected from %s's Country: %s (+%s)", userOrOwner, info.CountryName, info.DialCode)
 			} else {
 				targetNote = "Default: English (en)"
 			}
@@ -257,23 +263,81 @@ func unquoteText(s string) string {
 	return s
 }
 
-// getOwnerPhone resolves the bot owner's phone number string.
+// resolvePhoneNumber extracts the true E.164 phone number from a JID, ensuring LIDs are properly mapped to PNs.
+func resolvePhoneNumber(ctx *dispatch.Context, jid types.JID) string {
+	if jid.IsEmpty() {
+		return ""
+	}
+
+	// 1. If the JID is already a standard phone number JID (@s.whatsapp.net), use it directly.
+	if jid.Server == types.DefaultUserServer && jid.User != "" {
+		return jid.User
+	}
+
+	// 2. If it's an LID (@lid), NEVER use the LID's User directly as a phone number!
+	if jid.Server == types.HiddenUserServer {
+		// 2a. Check if message event already has SenderAlt with phone number JID
+		if ctx != nil && ctx.Evt != nil && !ctx.Evt.Info.SenderAlt.IsEmpty() {
+			if ctx.Evt.Info.SenderAlt.Server == types.DefaultUserServer && ctx.Evt.Info.SenderAlt.User != "" {
+				return ctx.Evt.Info.SenderAlt.User
+			}
+		}
+
+		// 2b. Check local cached LID -> PN mapping in store
+		if ctx != nil && ctx.Client != nil && ctx.Client.Store != nil && ctx.Client.Store.LIDs != nil {
+			reqCtx := ctx.GetSendContext()
+			if pn, err := ctx.Client.Store.LIDs.GetPNForLID(reqCtx, jid.ToNonAD()); err == nil && !pn.IsEmpty() {
+				if pn.Server == types.DefaultUserServer && pn.User != "" {
+					return pn.User
+				}
+			}
+		}
+
+		// 2c. Query WhatsApp GetUserInfo to resolve LID to PN device JID
+		if ctx != nil && ctx.Client != nil && ctx.Client.IsConnected() {
+			reqCtx := ctx.GetSendContext()
+			if uMap, err := ctx.Client.GetUserInfo(reqCtx, []types.JID{jid.ToNonAD()}); err == nil && uMap != nil {
+				if uInfo, ok := uMap[jid.ToNonAD()]; ok && len(uInfo.Devices) > 0 {
+					for _, dev := range uInfo.Devices {
+						if dev.Server == types.DefaultUserServer && dev.User != "" {
+							pnJID := types.NewJID(dev.User, types.DefaultUserServer)
+							if ctx.Client.Store != nil && ctx.Client.Store.LIDs != nil {
+								_ = ctx.Client.Store.LIDs.PutLIDMapping(reqCtx, jid.ToNonAD(), pnJID)
+							}
+							return dev.User
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return ""
+}
+
+// getOwnerPhone resolves the user or bot owner's phone number string.
 func getOwnerPhone(ctx *dispatch.Context) string {
 	if ctx == nil {
 		return ""
 	}
 
-	// 1. If sender is owner, use sender phone
-	if ctx.IsOwner() && ctx.Sender.User != "" {
-		return ctx.Sender.User
+	// 1. If sender is owner, resolve their phone number (handling LID -> PN mapping)
+	if ctx.IsOwner() {
+		if pn := resolvePhoneNumber(ctx, ctx.Sender); pn != "" {
+			return pn
+		}
 	}
 
 	// 2. Check environment variables
 	for _, envKey := range []string{"OWNER", "SUDO", "SUDOERS"} {
 		if val := strings.TrimSpace(os.Getenv(envKey)); val != "" {
 			parts := strings.Fields(val)
-			if len(parts) > 0 {
-				clean := strings.TrimPrefix(parts[0], "+")
+			for _, part := range parts {
+				clean := strings.TrimPrefix(part, "+")
+				if idx := strings.Index(clean, "@"); idx != -1 {
+					clean = clean[:idx]
+				}
+				clean = strings.TrimSpace(clean)
 				if clean != "" {
 					return clean
 				}
@@ -283,12 +347,14 @@ func getOwnerPhone(ctx *dispatch.Context) string {
 
 	// 3. Check client Store ID (bot account phone number)
 	if ctx.Client != nil && ctx.Client.Store != nil && ctx.Client.Store.ID != nil && !ctx.Client.Store.ID.IsEmpty() {
-		return ctx.Client.Store.ID.User
+		if ctx.Client.Store.ID.Server == types.DefaultUserServer && ctx.Client.Store.ID.User != "" {
+			return ctx.Client.Store.ID.User
+		}
 	}
 
-	// 4. Fallback to sender's user
-	if ctx.Sender.User != "" {
-		return ctx.Sender.User
+	// 4. Resolve sender's phone number even if not flagged as owner
+	if pn := resolvePhoneNumber(ctx, ctx.Sender); pn != "" {
+		return pn
 	}
 
 	return ""

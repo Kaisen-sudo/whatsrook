@@ -5,6 +5,9 @@ import (
 	"testing"
 
 	"whatsrook/cmd/dispatch"
+
+	"go.mau.fi/whatsmeow/types"
+	"go.mau.fi/whatsmeow/types/events"
 )
 
 func TestDetectOwnerCountryLanguage(t *testing.T) {
@@ -186,5 +189,35 @@ func TestIsSameLanguage(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("isSameLanguage(%q, %q) = %v, want %v", tt.l1, tt.l2, got, tt.want)
 		}
+	}
+}
+
+func TestResolvePhoneNumber(t *testing.T) {
+	// Standard phone number JID
+	pnJID := types.NewJID("559181616484", types.DefaultUserServer)
+	ctx := &dispatch.Context{Sender: pnJID}
+	if got := resolvePhoneNumber(ctx, pnJID); got != "559181616484" {
+		t.Errorf("resolvePhoneNumber for PN JID got %q, want %q", got, "559181616484")
+	}
+
+	// LID JID without mapping must NEVER return the LID number as a phone number
+	lidJID := types.NewJID("258123456789", types.HiddenUserServer)
+	ctxLID := &dispatch.Context{Sender: lidJID}
+	if got := resolvePhoneNumber(ctxLID, lidJID); got != "" {
+		t.Errorf("resolvePhoneNumber for LID JID without mapping got %q, want empty string", got)
+	}
+
+	// LID JID with SenderAlt PN
+	ctxWithAlt := &dispatch.Context{
+		Sender: lidJID,
+		Evt: &events.Message{
+			Info: types.MessageInfo{
+				Sender:    lidJID,
+				SenderAlt: types.NewJID("559181616484", types.DefaultUserServer),
+			},
+		},
+	}
+	if got := resolvePhoneNumber(ctxWithAlt, lidJID); got != "559181616484" {
+		t.Errorf("resolvePhoneNumber for LID with SenderAlt got %q, want %q", got, "559181616484")
 	}
 }
