@@ -130,6 +130,18 @@ func MapOptionToCommandArgs(cmdName, option string) string {
 		return cmdName + " scope group"
 	case "scope: dm", "dm only":
 		return cmdName + " scope dm"
+	case "activate for all groups", "all groups: on", "all groups":
+		return "autoai groups on"
+	case "deactivate for all groups", "all groups: off":
+		return "autoai groups off"
+	case "activate for all dms", "activate for all dm", "all dms: on", "all dm: on", "all dms", "all dm":
+		return "autoai dm on"
+	case "deactivate for all dms", "deactivate for all dm", "all dms: off", "all dm: off":
+		return "autoai dm off"
+	case "activate for this chat", "this chat: on", "current chat: on":
+		return "autoai on"
+	case "deactivate for this chat", "this chat: off", "current chat: off":
+		return "autoai off"
 	case "status view: on":
 		return cmdName + " status on"
 	case "status view: off":

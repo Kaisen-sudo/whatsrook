@@ -1,15 +1,19 @@
 package ai
 
 import (
+	"context"
 	"strings"
 	"testing"
 
+	"whatsrook"
 	"whatsrook/cmd/dispatch"
+	cmdStore "whatsrook/cmd/store"
 
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waAICommon"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store"
+	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 )
@@ -1046,5 +1050,115 @@ func TestResolveAltJID(t *testing.T) {
 	alt2 := resolveAltJID(ctx2)
 	if alt2 != botPN {
 		t.Errorf("resolveAltJID() = %v, want %v", alt2, botPN)
+	}
+}
+
+func TestAutoAI_GroupAndDMScoping(t *testing.T) {
+	ctx := context.Background()
+	tempDir := t.TempDir()
+
+	container, err := whatsrook.OpenStoreContainer(ctx, tempDir, "")
+	if err != nil {
+		t.Fatalf("OpenStoreContainer failed: %v", err)
+	}
+	defer container.Close()
+
+	deviceStore, err := container.GetFirstDevice(ctx)
+	if err != nil {
+		t.Fatalf("GetFirstDevice failed: %v", err)
+	}
+
+	botPN := types.NewJID("2348000000000", types.DefaultUserServer)
+	deviceStore.ID = &botPN
+
+	sqlStore := sqlstore.NewSQLStore(container, botPN)
+	cmdStore.InitTables(ctx, sqlStore)
+	s := dispatch.Wrap(sqlStore)
+
+	client := &whatsmeow.Client{
+		Store: deviceStore,
+	}
+
+	dmJID := types.NewJID("1111122222", types.DefaultUserServer)
+	dmCtx := &dispatch.Context{
+		Ctx:    ctx,
+		Client: client,
+		Chat:   dmJID,
+		Sender: dmJID,
+		Evt: &events.Message{
+			Info: types.MessageInfo{
+				Chat:   dmJID,
+				Sender: dmJID,
+			},
+		},
+	}
+
+	groupJID := types.NewJID("120363000000", types.GroupServer)
+	groupCtx := &dispatch.Context{
+		Ctx:    ctx,
+		Client: client,
+		Chat:   groupJID,
+		Sender: dmJID,
+		Evt: &events.Message{
+			Info: types.MessageInfo{
+				Chat:   groupJID,
+				Sender: dmJID,
+			},
+		},
+	}
+
+	// 1. By default, neither DM nor Group AutoAI should be active
+	if isAutoAIDMsEnabled(ctx, s) {
+		t.Errorf("expected isAutoAIDMsEnabled to be false by default")
+	}
+	if isAutoAIGroupsEnabled(ctx, s) {
+		t.Errorf("expected isAutoAIGroupsEnabled to be false by default")
+	}
+	if isAutoAIEnabled(dmCtx, s) {
+		t.Errorf("AutoAI should NOT be enabled for DM when autoai:dm is off")
+	}
+	if isAutoAIEnabled(groupCtx, s) {
+		t.Errorf("AutoAI should NOT be enabled for group when autoai:groups is off")
+	}
+
+	// 2. Activate for all DMs
+	if err := s.PutSetting(ctx, "autoai:dm", "on"); err != nil {
+		t.Fatalf("failed to put setting: %v", err)
+	}
+	if !isAutoAIDMsEnabled(ctx, s) {
+		t.Errorf("expected isAutoAIDMsEnabled to be true after enabling")
+	}
+	if !isAutoAIEnabled(dmCtx, s) {
+		t.Errorf("expected isAutoAIEnabled to be true for DM when autoai:dm is on")
+	}
+	if isAutoAIEnabled(groupCtx, s) {
+		t.Errorf("AutoAI should still NOT be enabled for group when only autoai:dm is on")
+	}
+
+	// 3. Deactivate specific DM override
+	if err := s.PutSetting(ctx, "autoai:"+dmJID.String(), "off"); err != nil {
+		t.Fatalf("failed to put setting: %v", err)
+	}
+	if isAutoAIEnabled(dmCtx, s) {
+		t.Errorf("expected isAutoAIEnabled to be false for DM when explicitly overridden to off")
+	}
+
+	// 4. Activate for all groups
+	if err := s.PutSetting(ctx, "autoai:groups", "on"); err != nil {
+		t.Fatalf("failed to put setting: %v", err)
+	}
+	if !isAutoAIGroupsEnabled(ctx, s) {
+		t.Errorf("expected isAutoAIGroupsEnabled to be true after enabling")
+	}
+	if !isAutoAIEnabled(groupCtx, s) {
+		t.Errorf("expected isAutoAIEnabled to be true for group when autoai:groups is on")
+	}
+
+	// 5. Deactivate specific group override
+	if err := s.PutSetting(ctx, "autoai:"+groupJID.String(), "off"); err != nil {
+		t.Fatalf("failed to put setting: %v", err)
+	}
+	if isAutoAIEnabled(groupCtx, s) {
+		t.Errorf("expected isAutoAIEnabled to be false for group when explicitly overridden to off")
 	}
 }

@@ -131,45 +131,189 @@ func handleAutoAI(ctx *dispatch.Context) error {
 		return ctx.Reply("Database store is not available.")
 	}
 
+	groupsOn := isAutoAIGroupsEnabled(ctx.Ctx, s)
+	dmOn := isAutoAIDMsEnabled(ctx.Ctx, s)
+	chatOn := isAutoAIEnabled(ctx, s)
+
 	if len(ctx.Args) == 0 {
-		current := "off"
-		if isAutoAIEnabled(ctx, s) {
-			current = "on"
+		p := ctx.GetPrefix()
+		chatStatus := "Disabled"
+		if chatOn {
+			chatStatus = "Enabled"
 		}
-		return ctx.Replyf("AutoAI is currently %s in this chat.", current)
-	}
+		groupsStatus := "Disabled"
+		if groupsOn {
+			groupsStatus = "Enabled"
+		}
+		dmStatus := "Disabled"
+		if dmOn {
+			dmStatus = "Enabled"
+		}
 
-	val := strings.ToLower(ctx.Args[0])
-	if val != "on" && val != "off" {
-		return ctx.Replyf("Usage: %sautoai [on/off]", ctx.GetPrefix())
-	}
+		tb := ctx.Text().
+			Header("AUTOAI CONFIGURATION").
+			Field("This Chat", chatStatus).
+			Field("All Groups", groupsStatus).
+			Field("All DMs", dmStatus).
+			Blank().
+			Line("Vote below to toggle AutoAI for all groups, all DMs, or this chat:").
+			Blank().
+			Section("Commands:").
+			Bulletf("All Groups : `%sautoai groups on/off`", p).
+			Bulletf("All DMs    : `%sautoai dm on/off`", p).
+			Bulletf("This Chat  : `%sautoai on/off`", p)
 
-	// 1. Set for current chat JID
-	settingKey := "autoai:" + ctx.Chat.ToNonAD().String()
-	if err := s.PutSetting(ctx.Ctx, settingKey, val); err != nil {
-		logger.Error("failed to update autoai setting", "err", err)
-		return ctx.Reply("Failed to update setting: " + err.Error())
-	}
-
-	// 2. Set for alternative JID (PN <-> LID)
-	if alt := resolveAltJID(ctx); !alt.IsEmpty() {
-		_ = s.PutSetting(ctx.Ctx, "autoai:"+alt.String(), val)
-	}
-
-	// 3. If in self-chat, also save to owner primary JID, LID, and global
-	if isSelfChat(ctx) {
-		if ctx.Client != nil && ctx.Client.Store != nil {
-			if ctx.Client.Store.ID != nil && !ctx.Client.Store.ID.IsEmpty() {
-				_ = s.PutSetting(ctx.Ctx, "autoai:"+ctx.Client.Store.ID.ToNonAD().String(), val)
+		var options []string
+		if ctx.IsSudo() {
+			if groupsOn {
+				options = append(options, "Deactivate for all groups")
+			} else {
+				options = append(options, "Activate for all groups")
 			}
-			if !ctx.Client.Store.LID.IsEmpty() {
-				_ = s.PutSetting(ctx.Ctx, "autoai:"+ctx.Client.Store.LID.ToNonAD().String(), val)
+			if dmOn {
+				options = append(options, "Deactivate for all DMs")
+			} else {
+				options = append(options, "Activate for all DMs")
 			}
 		}
-		_ = s.PutSetting(ctx.Ctx, "autoai", val)
+
+		if chatOn {
+			options = append(options, "Deactivate for this chat")
+		} else {
+			options = append(options, "Activate for this chat")
+		}
+
+		return dispatch.SendPollReply(ctx, tb.Trimmed(), options)
 	}
 
-	return ctx.Replyf("AutoAI has been set to %s for this chat.", val)
+	sub := strings.ToLower(ctx.Args[0])
+	switch sub {
+	case "groups", "group":
+		if !ctx.IsSudo() {
+			return ctx.Reply("Only the bot owner or sudoers can configure AutoAI for all groups.")
+		}
+		val := "on"
+		if len(ctx.Args) > 1 {
+			switch strings.ToLower(ctx.Args[1]) {
+			case "off", "deactivate", "disable":
+				val = "off"
+			case "on", "activate", "enable":
+				val = "on"
+			case "toggle":
+				if groupsOn {
+					val = "off"
+				} else {
+					val = "on"
+				}
+			default:
+				return ctx.Replyf("Usage: %sautoai groups [on/off]", ctx.GetPrefix())
+			}
+		} else {
+			if groupsOn {
+				val = "off"
+			} else {
+				val = "on"
+			}
+		}
+		if err := s.PutSetting(ctx.Ctx, "autoai:groups", val); err != nil {
+			return ctx.Replyf("Failed to update setting: %v", err)
+		}
+		return ctx.Replyf("AutoAI for all groups has been set to *%s*.", val)
+
+	case "dm", "dms":
+		if !ctx.IsSudo() {
+			return ctx.Reply("Only the bot owner or sudoers can configure AutoAI for all DMs.")
+		}
+		val := "on"
+		if len(ctx.Args) > 1 {
+			switch strings.ToLower(ctx.Args[1]) {
+			case "off", "deactivate", "disable":
+				val = "off"
+			case "on", "activate", "enable":
+				val = "on"
+			case "toggle":
+				if dmOn {
+					val = "off"
+				} else {
+					val = "on"
+				}
+			default:
+				return ctx.Replyf("Usage: %sautoai dm [on/off]", ctx.GetPrefix())
+			}
+		} else {
+			if dmOn {
+				val = "off"
+			} else {
+				val = "on"
+			}
+		}
+		if err := s.PutSetting(ctx.Ctx, "autoai:dm", val); err != nil {
+			return ctx.Replyf("Failed to update setting: %v", err)
+		}
+		return ctx.Replyf("AutoAI for all DMs has been set to *%s*.", val)
+
+	case "all":
+		if !ctx.IsSudo() {
+			return ctx.Reply("Only the bot owner or sudoers can configure global AutoAI.")
+		}
+		val := "on"
+		if len(ctx.Args) > 1 {
+			switch strings.ToLower(ctx.Args[1]) {
+			case "off", "deactivate", "disable":
+				val = "off"
+			case "on", "activate", "enable":
+				val = "on"
+			default:
+				return ctx.Replyf("Usage: %sautoai all [on/off]", ctx.GetPrefix())
+			}
+		}
+		_ = s.PutSetting(ctx.Ctx, "autoai:groups", val)
+		_ = s.PutSetting(ctx.Ctx, "autoai:dm", val)
+		return ctx.Replyf("AutoAI for all groups and all DMs has been set to *%s*.", val)
+
+	case "on", "activate", "enable":
+		settingKey := "autoai:" + ctx.Chat.ToNonAD().String()
+		if err := s.PutSetting(ctx.Ctx, settingKey, "on"); err != nil {
+			return ctx.Replyf("Failed to update setting: %v", err)
+		}
+		if alt := resolveAltJID(ctx); !alt.IsEmpty() {
+			_ = s.PutSetting(ctx.Ctx, "autoai:"+alt.String(), "on")
+		}
+		if isSelfChat(ctx) {
+			if ctx.Client != nil && ctx.Client.Store != nil {
+				if ctx.Client.Store.ID != nil && !ctx.Client.Store.ID.IsEmpty() {
+					_ = s.PutSetting(ctx.Ctx, "autoai:"+ctx.Client.Store.ID.ToNonAD().String(), "on")
+				}
+				if !ctx.Client.Store.LID.IsEmpty() {
+					_ = s.PutSetting(ctx.Ctx, "autoai:"+ctx.Client.Store.LID.ToNonAD().String(), "on")
+				}
+			}
+		}
+		return ctx.Reply("AutoAI has been enabled for this chat.")
+
+	case "off", "deactivate", "disable":
+		settingKey := "autoai:" + ctx.Chat.ToNonAD().String()
+		if err := s.PutSetting(ctx.Ctx, settingKey, "off"); err != nil {
+			return ctx.Replyf("Failed to update setting: %v", err)
+		}
+		if alt := resolveAltJID(ctx); !alt.IsEmpty() {
+			_ = s.PutSetting(ctx.Ctx, "autoai:"+alt.String(), "off")
+		}
+		if isSelfChat(ctx) {
+			if ctx.Client != nil && ctx.Client.Store != nil {
+				if ctx.Client.Store.ID != nil && !ctx.Client.Store.ID.IsEmpty() {
+					_ = s.PutSetting(ctx.Ctx, "autoai:"+ctx.Client.Store.ID.ToNonAD().String(), "off")
+				}
+				if !ctx.Client.Store.LID.IsEmpty() {
+					_ = s.PutSetting(ctx.Ctx, "autoai:"+ctx.Client.Store.LID.ToNonAD().String(), "off")
+				}
+			}
+		}
+		return ctx.Reply("AutoAI has been disabled for this chat.")
+
+	default:
+		return ctx.Replyf("Invalid argument. Usage:\n• `%sautoai` (interactive poll)\n• `%sautoai groups [on/off]`\n• `%sautoai dm [on/off]`\n• `%sautoai [on/off]`", ctx.GetPrefix(), ctx.GetPrefix(), ctx.GetPrefix(), ctx.GetPrefix())
+	}
 }
 
 func handleCSAI(ctx *dispatch.Context) error {
@@ -1001,7 +1145,36 @@ func isNewsletterOrBroadcast(chat, sender types.JID) bool {
 		sender.Server == types.NewsletterServer || sender.Server == types.BroadcastServer
 }
 
-// isAutoAIEnabled checks if AutoAI is enabled for this chat across direct chat, alternative JIDs, self-chat IDs, and global settings.
+// isAutoAIGroupsEnabled checks if AutoAI is enabled globally for all groups.
+func isAutoAIGroupsEnabled(ctx context.Context, s *dispatch.StoreWrapper) bool {
+	if s == nil {
+		return false
+	}
+	if val, err := s.GetSetting(ctx, "autoai:groups"); err == nil && val != "" {
+		return val == "on"
+	}
+	if val, err := s.GetSetting(ctx, "autoai:group"); err == nil && val != "" {
+		return val == "on"
+	}
+	return false
+}
+
+// isAutoAIDMsEnabled checks if AutoAI is enabled globally for all DMs.
+func isAutoAIDMsEnabled(ctx context.Context, s *dispatch.StoreWrapper) bool {
+	if s == nil {
+		return false
+	}
+	if val, err := s.GetSetting(ctx, "autoai:dm"); err == nil && val != "" {
+		return val == "on"
+	}
+	if val, err := s.GetSetting(ctx, "autoai:dms"); err == nil && val != "" {
+		return val == "on"
+	}
+	return false
+}
+
+// isAutoAIEnabled checks if AutoAI is enabled for this chat.
+// In 1-on-1 DMs, if it is not explicitly activated for DM, it does not respond to DM messages.
 func isAutoAIEnabled(c *dispatch.Context, s *dispatch.StoreWrapper) bool {
 	if c == nil || s == nil {
 		return false
@@ -1011,21 +1184,21 @@ func isAutoAIEnabled(c *dispatch.Context, s *dispatch.StoreWrapper) bool {
 	}
 	ctx := c.Ctx
 	chat := c.Chat.ToNonAD()
+	isGroup := c.Chat.Server == "g.us"
+	selfChat := isSelfChat(c)
 
-	// 1. Direct chat setting
+	// 1. Direct chat setting override
 	if val, err := s.GetSetting(ctx, "autoai:"+chat.String()); err == nil && val != "" {
 		return val == "on"
 	}
-
-	// 2. Alternative JID (LID <-> PN)
 	if alt := resolveAltJID(c); !alt.IsEmpty() {
 		if val, err := s.GetSetting(ctx, "autoai:"+alt.String()); err == nil && val != "" {
 			return val == "on"
 		}
 	}
 
-	// 3. If in self chat or if the sender is the owner, check owner's primary ID & LID
-	if isSelfChat(c) || c.IsOwner() || (c.Evt != nil && c.Evt.Info.IsFromMe) {
+	// 2. If in self chat ("Message Yourself"), check owner settings
+	if selfChat {
 		if c.Client != nil && c.Client.Store != nil {
 			if c.Client.Store.ID != nil && !c.Client.Store.ID.IsEmpty() {
 				if val, err := s.GetSetting(ctx, "autoai:"+c.Client.Store.ID.ToNonAD().String()); err == nil && val != "" {
@@ -1038,14 +1211,19 @@ func isAutoAIEnabled(c *dispatch.Context, s *dispatch.StoreWrapper) bool {
 				}
 			}
 		}
+		if isAutoAIDMsEnabled(ctx, s) {
+			return true
+		}
+		return false
 	}
 
-	// 4. Global setting fallback
-	if val, err := s.GetSetting(ctx, "autoai"); err == nil && val != "" {
-		return val == "on"
+	// 3. Group chat: check if activated for all groups
+	if isGroup {
+		return isAutoAIGroupsEnabled(ctx, s)
 	}
 
-	return false
+	// 4. DM chat: if not activated for DM, do NOT respond to DM messages!
+	return isAutoAIDMsEnabled(ctx, s)
 }
 
 // HandleAutoAIIntercept checks if AutoAI is enabled and handles automatic responses.
