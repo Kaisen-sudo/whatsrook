@@ -149,6 +149,26 @@ func handleTranslate(ctx *dispatch.Context) error {
 		return ctx.Replyf("Translation failed: %v", err)
 	}
 
+	// If target language was not explicitly specified and the input text is already in the
+	// target/owner language, auto-switch to English (or Spanish if target is English) to provide a useful translation.
+	if !explicitlySpecified && isSameLanguage(sourceLangCode, targetLang) {
+		altTarget := "en"
+		if strings.HasPrefix(strings.ToLower(targetLang), "en") {
+			altTarget = "es"
+		}
+		if altTrans, _, altErr := executeTranslation(ctx, text, altTarget); altErr == nil && altTrans != "" {
+			translated = altTrans
+			origTargetName := targetLangName
+			targetLang = altTarget
+			if _, name, ok := NormalizeLanguageCode(altTarget); ok {
+				targetLangName = name
+			} else {
+				targetLangName = altTarget
+			}
+			targetNote = fmt.Sprintf("Auto-switched to %s (message is already in %s)", targetLangName, origTargetName)
+		}
+	}
+
 	sourceLangName := sourceLangCode
 	if _, name, ok := NormalizeLanguageCode(sourceLangCode); ok {
 		sourceLangName = fmt.Sprintf("%s (%s)", name, sourceLangCode)
@@ -168,6 +188,25 @@ func handleTranslate(ctx *dispatch.Context) error {
 		Line(translated)
 
 	return ctx.Reply(tb.String())
+}
+
+// isSameLanguage checks whether two language codes represent the same language (e.g. "pt" and "pt-BR").
+func isSameLanguage(lang1, lang2 string) bool {
+	l1 := strings.ToLower(strings.TrimSpace(lang1))
+	l2 := strings.ToLower(strings.TrimSpace(lang2))
+	if l1 == "" || l2 == "" {
+		return false
+	}
+	if l1 == l2 {
+		return true
+	}
+	if idx := strings.IndexByte(l1, '-'); idx > 0 {
+		l1 = l1[:idx]
+	}
+	if idx := strings.IndexByte(l2, '-'); idx > 0 {
+		l2 = l2[:idx]
+	}
+	return l1 == l2
 }
 
 // parseTranslateInput extracts target language (if explicitly specified) and cleans quotes from the text.

@@ -156,4 +156,35 @@ func TestExecuteTranslation(t *testing.T) {
 		t.Fatalf("expected source language to be detected, got empty string")
 	}
 	t.Logf("translated 'Hello world' -> %q (source: %s)", translated, src)
+
+	translatedPT, srcPT, errPT := executeTranslation(ctx, "tá rápido em", "en")
+	if errPT == nil {
+		t.Logf("translated 'tá rápido em' -> %q (source: %s)", translatedPT, srcPT)
+		if !isSameLanguage(srcPT, "pt") {
+			t.Errorf("expected source to be Portuguese (pt), got %s", srcPT)
+		}
+	}
+}
+
+func TestIsSameLanguage(t *testing.T) {
+	tests := []struct {
+		l1, l2 string
+		want   bool
+	}{
+		{"pt", "pt", true},
+		{"pt-BR", "pt", true},
+		{"pt", "pt-PT", true},
+		{"en", "en-US", true},
+		{"ES", "es", true},
+		{"pt", "es", false},
+		{"en", "fr", false},
+		{"", "pt", false},
+		{"pt", "", false},
+	}
+	for _, tt := range tests {
+		got := isSameLanguage(tt.l1, tt.l2)
+		if got != tt.want {
+			t.Errorf("isSameLanguage(%q, %q) = %v, want %v", tt.l1, tt.l2, got, tt.want)
+		}
+	}
 }
