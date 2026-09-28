@@ -1,5 +1,12 @@
 //! Media encoding and data URL helper utilities.
 
+#![allow(
+    unknown_lints,
+    clippy::manual_div_ceil,
+    clippy::chunks_exact_to_as_chunks,
+    clippy::manual_is_multiple_of
+)]
+
 use std::fmt;
 use std::fs;
 use std::io;
@@ -40,7 +47,7 @@ impl std::error::Error for Base64Error {}
 /// assert_eq!(encode_base64(b"hello world"), "aGVsbG8gd29ybGQ=");
 /// ```
 pub fn encode_base64(bytes: &[u8]) -> String {
-    let mut out = String::with_capacity((bytes.len() + 2) / 3 * 4);
+    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
     let mut chunks = bytes.chunks_exact(3);
 
     for chunk in chunks.by_ref() {
@@ -98,7 +105,7 @@ pub fn decode_base64(input: &str) -> Result<Vec<u8>, Base64Error> {
         return Ok(Vec::new());
     }
 
-    if clean.len() % 4 != 0 {
+    if !clean.len().is_multiple_of(4) {
         return Err(Base64Error::InvalidLength);
     }
 
