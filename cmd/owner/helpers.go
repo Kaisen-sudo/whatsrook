@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"os"
 	"os/exec"
 	"regexp"
 	"slices"
@@ -17,6 +18,8 @@ import (
 var (
 	ActiveShellSessions   = make(map[string]*ShellSession)
 	ActiveShellSessionsMu sync.Mutex
+	ShellWorkingDirs      = make(map[string]string)
+	ShellWorkingDirsMu    sync.Mutex
 	AnsiEscapeRegex       = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]|\x1b\([a-zA-Z]|\x1b\][0-9];[^\a\x1b]*(?:\a|\x1b\\)`)
 )
 
@@ -31,9 +34,50 @@ type ShellSession struct {
 	Mu             sync.Mutex
 	StartTime      time.Time
 	CommandStr     string
+	InitialDir     string
+	FinalDir       string
 	UpdateCh       chan struct{}
 	Done           chan struct{}
 	UserTerminated bool
+}
+
+func getShellWorkingDir(chatKey string) string {
+	ShellWorkingDirsMu.Lock()
+	defer ShellWorkingDirsMu.Unlock()
+
+	dir, exists := ShellWorkingDirs[chatKey]
+	if !exists || dir == "" {
+		if defaultDir, err := os.Getwd(); err == nil {
+			dir = defaultDir
+		} else {
+			dir = "."
+		}
+		ShellWorkingDirs[chatKey] = dir
+	}
+
+	// Validate directory still exists
+	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+		if defaultDir, err := os.Getwd(); err == nil {
+			dir = defaultDir
+		} else {
+			dir = "."
+		}
+		ShellWorkingDirs[chatKey] = dir
+	}
+
+	return dir
+}
+
+func setShellWorkingDir(chatKey, newDir string) {
+	newDir = strings.TrimSpace(newDir)
+	if newDir == "" {
+		return
+	}
+	if info, err := os.Stat(newDir); err == nil && info.IsDir() {
+		ShellWorkingDirsMu.Lock()
+		ShellWorkingDirs[chatKey] = newDir
+		ShellWorkingDirsMu.Unlock()
+	}
 }
 
 func CleanShellOutput(raw string) string {

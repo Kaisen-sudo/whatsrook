@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 
@@ -209,9 +210,20 @@ func handleSetBotPP(ctx *dispatch.Context) error {
 	return ctx.Replyf("Bot profile picture updated successfully! (Picture ID: %s)", picID)
 }
 
+func getShellChatKey(ctx *dispatch.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	if ctx.IsTargetOwner(ctx.Chat) {
+		return "owner_self"
+	}
+	return ctx.Chat.ToNonAD().String()
+}
+
 func handleStopShell(ctx *dispatch.Context) error {
+	chatKey := getShellChatKey(ctx)
 	ActiveShellSessionsMu.Lock()
-	session, exists := ActiveShellSessions[ctx.Chat.String()]
+	session, exists := ActiveShellSessions[chatKey]
 	ActiveShellSessionsMu.Unlock()
 
 	if !exists || session == nil {
@@ -235,8 +247,9 @@ func HandleShellInput(ctx *dispatch.Context, text string) bool {
 		return false
 	}
 
+	chatKey := getShellChatKey(ctx)
 	ActiveShellSessionsMu.Lock()
-	session, exists := ActiveShellSessions[ctx.Chat.String()]
+	session, exists := ActiveShellSessions[chatKey]
 	ActiveShellSessionsMu.Unlock()
 
 	if !exists || session == nil {
@@ -317,7 +330,8 @@ func handleSh(ctx *dispatch.Context) error {
 		return ctx.Replyf("Usage: %ssh <command line>\n\nExample:\n%ssh yt-dlp \"https://...\" -t mp4\n%ssh ls -la", p, p, p)
 	}
 
-	chatKey := ctx.Chat.String()
+	chatKey := getShellChatKey(ctx)
+	cwd := getShellWorkingDir(chatKey)
 
 	// Cancel any active session in this chat
 	ActiveShellSessionsMu.Lock()
@@ -333,16 +347,39 @@ func handleSh(ctx *dispatch.Context) error {
 
 	execCtx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 
+	pwdFile, err := os.CreateTemp("", "whatsrook-pwd-*")
+	var pwdFilePath string
+	if err == nil {
+		pwdFilePath = pwdFile.Name()
+		_ = pwdFile.Close()
+	}
+
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		psScript := "[Console]::OutputEncoding = [util.Text.Encoding]::UTF8; " + commandStr
-		if pwshPath, err := exec.LookPath("pwsh"); err == nil {
-			cmd = exec.CommandContext(execCtx, pwshPath, "-NoProfile", "-NonInteractive", "-Command", psScript)
-		} else if psPath, err := exec.LookPath("powershell"); err == nil {
-			cmd = exec.CommandContext(execCtx, psPath, "-NoProfile", "-NonInteractive", "-Command", psScript)
-		} else {
-			cmd = exec.CommandContext(execCtx, "cmd.exe", "/c", commandStr)
+		binPath, pErr := exec.LookPath("pwsh")
+		if pErr != nil {
+			binPath, pErr = exec.LookPath("powershell")
 		}
+
+		if pErr == nil {
+			var psScript string
+			if pwdFilePath != "" {
+				escapedPwdPath := strings.ReplaceAll(pwdFilePath, "'", "''")
+				psScript = fmt.Sprintf("[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; try { %s } finally { (Get-Location).Path | Out-File -FilePath '%s' -Encoding utf8 }", commandStr, escapedPwdPath)
+			} else {
+				psScript = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; " + commandStr
+			}
+			cmd = exec.CommandContext(execCtx, binPath, "-NoProfile", "-NonInteractive", "-Command", psScript)
+		} else {
+			var cmdStr string
+			if pwdFilePath != "" {
+				cmdStr = fmt.Sprintf("%s & cd > \"%s\"", commandStr, pwdFilePath)
+			} else {
+				cmdStr = commandStr
+			}
+			cmd = exec.CommandContext(execCtx, "cmd.exe", "/c", cmdStr)
+		}
+		cmd.Dir = cwd
 		cmd.Env = append(os.Environ(),
 			"PYTHONUNBUFFERED=1",
 			"CI=1",
@@ -353,13 +390,20 @@ func handleSh(ctx *dispatch.Context) error {
 			shell = "sh"
 		}
 
-		// If stdbuf exists, use it to force unbuffered / line-buffered stdout and stderr
-		execCmdStr := commandStr
-		if _, err := exec.LookPath("stdbuf"); err == nil {
-			execCmdStr = "stdbuf -oL -eL " + commandStr
+		var fullScript string
+		if pwdFilePath != "" {
+			escapedPwdPath := strings.ReplaceAll(pwdFilePath, "'", "'\\''")
+			fullScript = fmt.Sprintf("trap \"pwd > '%s'\" EXIT\n%s", escapedPwdPath, commandStr)
+		} else {
+			fullScript = commandStr
 		}
 
-		cmd = exec.CommandContext(execCtx, shell, "-c", execCmdStr)
+		if stdbufPath, err := exec.LookPath("stdbuf"); err == nil {
+			cmd = exec.CommandContext(execCtx, stdbufPath, "-oL", "-eL", shell, "-c", fullScript)
+		} else {
+			cmd = exec.CommandContext(execCtx, shell, "-c", fullScript)
+		}
+		cmd.Dir = cwd
 		cmd.Env = append(os.Environ(),
 			"TERM=xterm-256color",
 			"PYTHONUNBUFFERED=1",
@@ -372,25 +416,37 @@ func handleSh(ctx *dispatch.Context) error {
 
 	stdinPipe, err := cmd.StdinPipe()
 	if err != nil {
+		if pwdFilePath != "" {
+			_ = os.Remove(pwdFilePath)
+		}
 		cancel()
 		return ctx.Replyf("Failed to open stdin pipe: %v", err)
 	}
 
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
+		if pwdFilePath != "" {
+			_ = os.Remove(pwdFilePath)
+		}
 		cancel()
 		return ctx.Replyf("Failed to open stdout pipe: %v", err)
 	}
 
 	stderrPipe, err := cmd.StderrPipe()
 	if err != nil {
+		if pwdFilePath != "" {
+			_ = os.Remove(pwdFilePath)
+		}
 		cancel()
 		return ctx.Replyf("Failed to open stderr pipe: %v", err)
 	}
 
-	initialMsg := dispatch.Sprintf("*Executing Shell Command...*\n`%s`\n\n```\n(starting process...)\n```\n_Type in chat to send stdin input. Type `.stop` to kill._", commandStr)
+	initialMsg := dispatch.Sprintf("*Executing Shell Command...*\n`%s`\n_Dir: `%s`_\n\n```\n(starting process...)\n```\n_Type in chat to send stdin input. Type `.stop` to kill._", commandStr, cwd)
 	msgID, err := ctx.ReplyWithID(initialMsg)
 	if err != nil {
+		if pwdFilePath != "" {
+			_ = os.Remove(pwdFilePath)
+		}
 		cancel()
 		return errors.New("failed to send initial shell message: " + err.Error())
 	}
@@ -405,6 +461,8 @@ func handleSh(ctx *dispatch.Context) error {
 		Buf:        new(bytes.Buffer),
 		StartTime:  time.Now(),
 		CommandStr: commandStr,
+		InitialDir: cwd,
+		FinalDir:   cwd,
 		UpdateCh:   make(chan struct{}, 20),
 		Done:       make(chan struct{}),
 	}
@@ -418,7 +476,10 @@ func handleSh(ctx *dispatch.Context) error {
 		delete(ActiveShellSessions, chatKey)
 		ActiveShellSessionsMu.Unlock()
 		cancel()
-		_, _ = ctx.Edit(msgID, dispatch.Sprintf("*Shell Error:*\n`%s`\n\n```\nFailed to start: %v\n```", commandStr, err))
+		if pwdFilePath != "" {
+			_ = os.Remove(pwdFilePath)
+		}
+		_, _ = ctx.Edit(msgID, dispatch.Sprintf("*Shell Error:*\n`%s`\n_Dir: `%s`_\n\n```\nFailed to start: %v\n```", commandStr, cwd, err))
 		return nil
 	}
 
@@ -472,7 +533,7 @@ func handleSh(ctx *dispatch.Context) error {
 			}
 
 			if cleaned != lastEditedText && time.Since(lastEditTime) >= 800*time.Millisecond {
-				updateText := dispatch.Sprintf("*Executing Shell Command...*\n`%s`\n\n```\n%s\n```\n_Type in chat to send stdin input. Type `.stop` to kill._", session.CommandStr, cleaned)
+				updateText := dispatch.Sprintf("*Executing Shell Command...*\n`%s`\n_Dir: `%s`_\n\n```\n%s\n```\n_Type in chat to send stdin input. Type `.stop` to kill._", session.CommandStr, session.InitialDir, cleaned)
 				_, _ = ctx.Edit(session.MsgID, updateText)
 				lastEditedText = cleaned
 				lastEditTime = time.Now()
@@ -509,6 +570,19 @@ func handleSh(ctx *dispatch.Context) error {
 
 		cancel()
 
+		finalDir := session.InitialDir
+		if pwdFilePath != "" {
+			if data, err := os.ReadFile(pwdFilePath); err == nil {
+				newDir := strings.TrimSpace(string(data))
+				if newDir != "" {
+					setShellWorkingDir(chatKey, newDir)
+					finalDir = getShellWorkingDir(chatKey)
+				}
+			}
+			_ = os.Remove(pwdFilePath)
+		}
+		session.FinalDir = finalDir
+
 		cleaned := CleanShellOutput(rawOutput)
 		if cleaned == "" {
 			cleaned = "(no output)"
@@ -527,7 +601,7 @@ func handleSh(ctx *dispatch.Context) error {
 			cleaned = "... (truncated)\n" + cleaned[len(cleaned)-3400:]
 		}
 
-		finalMsg := dispatch.Sprintf("*Shell Output*\nCommand: `%s`\nStatus: *%s*\n\n```\n%s\n```", session.CommandStr, statusStr, cleaned)
+		finalMsg := dispatch.Sprintf("*Shell Output*\nCommand: `%s`\nDirectory: `%s`\nStatus: *%s*\n\n```\n%s\n```", session.CommandStr, finalDir, statusStr, cleaned)
 		_, _ = ctx.Edit(session.MsgID, finalMsg)
 	}()
 
