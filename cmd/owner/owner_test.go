@@ -58,3 +58,16 @@ func TestCleanShellOutput(t *testing.T) {
 		t.Errorf("unexpected output: %q", cleaned)
 	}
 }
+
+func TestShellSessionRCPath(t *testing.T) {
+	chatKey := "test_chat_persistence@s.whatsapp.net"
+	rcPath := getShellSessionRCPath(chatKey)
+	if rcPath == "" {
+		t.Fatalf("expected non-empty rcPath")
+	}
+	defer os.Remove(rcPath)
+
+	if !filepath.IsAbs(rcPath) {
+		t.Errorf("expected absolute rcPath, got %q", rcPath)
+	}
+}

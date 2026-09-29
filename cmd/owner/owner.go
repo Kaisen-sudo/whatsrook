@@ -330,8 +330,19 @@ func handleSh(ctx *dispatch.Context) error {
 		return ctx.Replyf("Usage: %ssh <command line>\n\nExample:\n%ssh yt-dlp \"https://...\" -t mp4\n%ssh ls -la", p, p, p)
 	}
 
+	if commandStr == "reset" || commandStr == "--reset" {
+		chatKey := getShellChatKey(ctx)
+		rcPath := getShellSessionRCPath(chatKey)
+		_ = os.Remove(rcPath)
+		if defaultDir, err := os.Getwd(); err == nil {
+			setShellWorkingDir(chatKey, defaultDir)
+		}
+		return ctx.Reply("Shell session reset: working directory, functions, and aliases have been restored to default.")
+	}
+
 	chatKey := getShellChatKey(ctx)
 	cwd := getShellWorkingDir(chatKey)
+	rcPath := getShellSessionRCPath(chatKey)
 
 	// Cancel any active session in this chat
 	ActiveShellSessionsMu.Lock()
@@ -363,11 +374,12 @@ func handleSh(ctx *dispatch.Context) error {
 
 		if pErr == nil {
 			var psScript string
+			escapedPwdPath := strings.ReplaceAll(pwdFilePath, "'", "''")
+			escapedRCPath := strings.ReplaceAll(rcPath, "'", "''")
 			if pwdFilePath != "" {
-				escapedPwdPath := strings.ReplaceAll(pwdFilePath, "'", "''")
-				psScript = fmt.Sprintf("[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; try { %s } finally { (Get-Location).Path | Out-File -FilePath '%s' -Encoding utf8 }", commandStr, escapedPwdPath)
+				psScript = fmt.Sprintf("[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; if (Test-Path '%s') { . '%s' }; try { %s } finally { (Get-Location).Path | Out-File -FilePath '%s' -Encoding utf8 }", escapedRCPath, escapedRCPath, commandStr, escapedPwdPath)
 			} else {
-				psScript = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; " + commandStr
+				psScript = fmt.Sprintf("[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; if (Test-Path '%s') { . '%s' }; %s", escapedRCPath, escapedRCPath, commandStr)
 			}
 			cmd = exec.CommandContext(execCtx, binPath, "-NoProfile", "-NonInteractive", "-Command", psScript)
 		} else {
@@ -385,17 +397,46 @@ func handleSh(ctx *dispatch.Context) error {
 			"CI=1",
 		)
 	} else {
-		shell := "bash"
-		if _, err := exec.LookPath("bash"); err != nil {
-			shell = "sh"
+		shell := os.Getenv("SHELL")
+		if shell != "" {
+			if p, err := exec.LookPath(shell); err == nil {
+				shell = p
+			} else {
+				shell = ""
+			}
+		}
+		if shell == "" {
+			if p, err := exec.LookPath("zsh"); err == nil {
+				shell = p
+			} else if p, err := exec.LookPath("bash"); err == nil {
+				shell = p
+			} else if p, err := exec.LookPath("sh"); err == nil {
+				shell = p
+			} else {
+				shell = "sh"
+			}
 		}
 
 		var fullScript string
 		if pwdFilePath != "" {
-			escapedPwdPath := strings.ReplaceAll(pwdFilePath, "'", "'\\''")
-			fullScript = fmt.Sprintf("trap \"pwd > '%s'\" EXIT\n%s", escapedPwdPath, commandStr)
+			fullScript = fmt.Sprintf(`[ -f "%s" ] && . "%s"
+__sh_exit() {
+    pwd > "%s"
+    unset -f __sh_exit 2>/dev/null
+    (typeset -f 2>/dev/null || declare -f 2>/dev/null) > "%s" 2>/dev/null
+    (alias -L 2>/dev/null || alias -p 2>/dev/null) >> "%s" 2>/dev/null
+}
+trap __sh_exit EXIT
+%s`, rcPath, rcPath, pwdFilePath, rcPath, rcPath, commandStr)
 		} else {
-			fullScript = commandStr
+			fullScript = fmt.Sprintf(`[ -f "%s" ] && . "%s"
+__sh_exit() {
+    unset -f __sh_exit 2>/dev/null
+    (typeset -f 2>/dev/null || declare -f 2>/dev/null) > "%s" 2>/dev/null
+    (alias -L 2>/dev/null || alias -p 2>/dev/null) >> "%s" 2>/dev/null
+}
+trap __sh_exit EXIT
+%s`, rcPath, rcPath, rcPath, rcPath, commandStr)
 		}
 
 		if stdbufPath, err := exec.LookPath("stdbuf"); err == nil {

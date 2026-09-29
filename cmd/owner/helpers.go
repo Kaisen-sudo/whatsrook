@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -13,6 +14,8 @@ import (
 	"time"
 
 	"go.mau.fi/whatsmeow/types"
+
+	"whatsrook"
 )
 
 var (
@@ -78,6 +81,18 @@ func setShellWorkingDir(chatKey, newDir string) {
 		ShellWorkingDirs[chatKey] = newDir
 		ShellWorkingDirsMu.Unlock()
 	}
+}
+
+func getShellSessionRCPath(chatKey string) string {
+	dir := filepath.Join(whatsrook.DefaultDataDir(), "shell_sessions")
+	_ = os.MkdirAll(dir, 0700)
+	safeKey := strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
+			return r
+		}
+		return '_'
+	}, chatKey)
+	return filepath.Join(dir, safeKey+".shrc")
 }
 
 func CleanShellOutput(raw string) string {
