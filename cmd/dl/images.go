@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -178,8 +177,8 @@ func downloadAndSendImages(ctx *dispatch.Context, rawURL string, meta *MediaMeta
 	}
 	args = append(args, rawURL)
 
-	cmd := exec.CommandContext(dlCtx, "yt-dlp", args...)
-	out, err := cmd.CombinedOutput()
+	title := safeMediaTitle(meta)
+	out, progressMsgID, err := runYtdlpWithLiveProgress(ctx, dlCtx, "Images", title, args)
 	if err != nil && !strings.Contains(string(out), "Maximum number of downloads reached") {
 		return fmt.Errorf("image download failed: %w (%s)", err, strings.TrimSpace(string(out)))
 	}
@@ -189,6 +188,9 @@ func downloadAndSendImages(ctx *dispatch.Context, rawURL string, meta *MediaMeta
 		matches, _ = filepath.Glob(filepath.Join(os.TempDir(), fmt.Sprintf("ytdl_img_%d_*", nowNano)))
 	}
 	if len(matches) == 0 {
+		if progressMsgID != "" {
+			_, _ = ctx.Edit(progressMsgID, fmt.Sprintf("*Download Failed:*\n_Title: `%s`_\n\n```\nDownloaded image file not found on disk\n```", title))
+		}
 		return fmt.Errorf("downloaded image file not found on disk")
 	}
 
@@ -202,10 +204,23 @@ func downloadAndSendImages(ctx *dispatch.Context, rawURL string, meta *MediaMeta
 	}
 
 	if len(items) == 0 {
+		if progressMsgID != "" {
+			_, _ = ctx.Edit(progressMsgID, fmt.Sprintf("*Processing Failed:*\n_Title: `%s`_\n\n```\nFailed to read downloaded image files\n```", title))
+		}
 		return fmt.Errorf("failed to read downloaded image files")
 	}
 
-	return sendImageItems(ctx, items, baseCaption)
+	if progressMsgID != "" {
+		_, _ = ctx.Edit(progressMsgID, fmt.Sprintf("*Uploading Images...*\n_Title: `%s`_\n\n_Uploading gallery to WhatsApp..._", title))
+	}
+
+	sendErr := sendImageItems(ctx, items, baseCaption)
+	if sendErr == nil && progressMsgID != "" {
+		if _, delErr := ctx.Delete(progressMsgID); delErr != nil {
+			_, _ = ctx.Edit(progressMsgID, fmt.Sprintf("*Download Complete!*\n_Title: `%s`_", title))
+		}
+	}
+	return sendErr
 }
 
 // sendImageItems delivers a collection of images to the chat as an album or single image.

@@ -4,15 +4,21 @@
 package dl
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"math"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"go.mau.fi/whatsmeow"
@@ -303,6 +309,397 @@ func fetchMetadata(ctx *dispatch.Context, rawURL string) (*MediaMeta, error) {
 	return &meta, nil
 }
 
+var ansiEscapeRegex = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]|\x1b\([a-zA-Z]|\x1b\][0-9];[^\a\x1b]*(?:\a|\x1b\\)`)
+
+func safeMediaTitle(meta *MediaMeta) string {
+	if meta == nil {
+		return "Media Download"
+	}
+	t := strings.TrimSpace(meta.GetTitle())
+	t = strings.ReplaceAll(t, "`", "'")
+	if len(t) > 75 {
+		t = strings.TrimSpace(t[:72]) + "..."
+	}
+	if t == "" {
+		return "Media Download"
+	}
+	return t
+}
+
+func cleanYtdlpOutput(raw string) string {
+	cleaned := ansiEscapeRegex.ReplaceAllString(raw, "")
+	rawLines := strings.Split(cleaned, "\n")
+	var lines []string
+	for _, line := range rawLines {
+		if strings.Contains(line, "\r") {
+			parts := strings.Split(line, "\r")
+			var last string
+			for i := len(parts) - 1; i >= 0; i-- {
+				t := strings.TrimRight(parts[i], " \t")
+				if t != "" {
+					last = t
+					break
+				}
+			}
+			if last != "" {
+				lines = append(lines, last)
+			}
+		} else {
+			trimmed := strings.TrimRight(line, " \t")
+			if trimmed != "" {
+				lines = append(lines, trimmed)
+			}
+		}
+	}
+	if len(lines) == 0 {
+		return "(starting download...)"
+	}
+	if len(lines) > 5 {
+		lines = lines[len(lines)-5:]
+	}
+	return strings.Join(lines, "\n")
+}
+
+func formatBytes(bytes uint64) string {
+	const (
+		kib = 1024
+		mib = 1024 * kib
+		gib = 1024 * mib
+	)
+	switch {
+	case bytes >= gib:
+		return fmt.Sprintf("%.2fGiB", float64(bytes)/gib)
+	case bytes >= mib:
+		return fmt.Sprintf("%.2fMiB", float64(bytes)/mib)
+	case bytes >= kib:
+		return fmt.Sprintf("%.2fKiB", float64(bytes)/kib)
+	default:
+		return fmt.Sprintf("%dB", bytes)
+	}
+}
+
+func formatSpeed(bytesPerSec float64) string {
+	const (
+		kib = 1024
+		mib = 1024 * kib
+	)
+	switch {
+	case bytesPerSec >= mib:
+		return fmt.Sprintf("%.2fMiB/s", bytesPerSec/mib)
+	case bytesPerSec >= kib:
+		return fmt.Sprintf("%.2fKiB/s", bytesPerSec/kib)
+	default:
+		return fmt.Sprintf("%.0fB/s", bytesPerSec)
+	}
+}
+
+func formatETA(sec float64) string {
+	if sec <= 0 || sec > 86400 {
+		return ""
+	}
+	total := int(sec)
+	m := total / 60
+	s := total % 60
+	if m >= 60 {
+		h := m / 60
+		m = m % 60
+		return fmt.Sprintf("%02d:%02d:%02d", h, m, s)
+	}
+	return fmt.Sprintf("%02d:%02d", m, s)
+}
+
+func formatDuration(sec float64) string {
+	if sec <= 0 {
+		return "00:00"
+	}
+	total := int(math.Round(sec))
+	m := total / 60
+	s := total % 60
+	if m >= 60 {
+		h := m / 60
+		m = m % 60
+		return fmt.Sprintf("%02d:%02d:%02d", h, m, s)
+	}
+	return fmt.Sprintf("%02d:%02d", m, s)
+}
+
+func formatTranscodeProgress(processedSec, totalSec, speed float64) string {
+	var (
+		speedStr string
+		etaStr   string
+	)
+	if speed > 0 {
+		speedStr = fmt.Sprintf("%.2fx", speed)
+		if totalSec > processedSec {
+			remaining := totalSec - processedSec
+			etaSec := remaining / speed
+			eta := formatETA(etaSec)
+			if eta != "" {
+				etaStr = "ETA " + eta
+			}
+		}
+	}
+	if speedStr == "" {
+		speedStr = "Unknown speed"
+	}
+	if etaStr == "" {
+		etaStr = "ETA Unknown"
+	}
+
+	if totalSec > 0 {
+		pct := (processedSec / totalSec) * 100.0
+		if pct > 100.0 {
+			pct = 100.0
+		}
+		return fmt.Sprintf("[transcode] %5.1f%% of %s at %s %s", pct, formatDuration(totalSec), speedStr, etaStr)
+	}
+
+	return fmt.Sprintf("[transcode] %s processed at %s", formatDuration(processedSec), speedStr)
+}
+
+func probeMediaDuration(ctx context.Context, filePath string) float64 {
+	cmd := exec.CommandContext(ctx, "ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", filePath)
+	out, err := cmd.Output()
+	if err != nil {
+		return 0
+	}
+	dur, _ := strconv.ParseFloat(strings.TrimSpace(string(out)), 64)
+	return dur
+}
+
+func makeTranscodeProgressCallback(
+	ctx *dispatch.Context,
+	progressMsgID string,
+	mediaType string,
+	title string,
+) func(processedSec, totalSec, speed float64) {
+	if progressMsgID == "" {
+		return nil
+	}
+	var (
+		lastEditTime time.Time
+		transcodeMu  sync.Mutex
+	)
+
+	return func(processedSec, totalSec, speed float64) {
+		transcodeMu.Lock()
+		defer transcodeMu.Unlock()
+
+		now := time.Now()
+		isComplete := totalSec > 0 && processedSec >= totalSec
+		if now.Sub(lastEditTime) < 1100*time.Millisecond && !isComplete {
+			return
+		}
+		lastEditTime = now
+
+		progressLine := formatTranscodeProgress(processedSec, totalSec, speed)
+		updateText := fmt.Sprintf("*Transcoding %s...*\n_Title: `%s`_\n\n```\n%s\n```", mediaType, title, progressLine)
+		_, _ = ctx.Edit(progressMsgID, updateText)
+	}
+}
+
+func makeUploadProgressCallback(
+	ctx *dispatch.Context,
+	progressMsgID string,
+	mediaType string,
+	title string,
+) func(uploaded, total uint64) {
+	if progressMsgID == "" {
+		return nil
+	}
+	var (
+		lastEditTime time.Time
+		uploadMu     sync.Mutex
+		uploadStart  = time.Now()
+	)
+
+	return func(uploaded, total uint64) {
+		if total == 0 {
+			return
+		}
+		uploadMu.Lock()
+		defer uploadMu.Unlock()
+
+		now := time.Now()
+		// Throttle edits to at most once per 1100ms, unless upload is complete
+		if now.Sub(lastEditTime) < 1100*time.Millisecond && uploaded < total {
+			return
+		}
+		lastEditTime = now
+
+		pct := float64(uploaded) / float64(total) * 100.0
+		if pct > 100.0 {
+			pct = 100.0
+		}
+		elapsed := now.Sub(uploadStart).Seconds()
+		var speedStr, etaStr string
+		if elapsed > 0.2 && uploaded > 0 {
+			speed := float64(uploaded) / elapsed
+			speedStr = formatSpeed(speed)
+			remaining := float64(total - uploaded)
+			if speed > 0 && remaining > 0 {
+				etaSec := remaining / speed
+				etaStr = formatETA(etaSec)
+			}
+		}
+		if speedStr == "" {
+			speedStr = "Unknown B/s"
+		}
+		if etaStr == "" {
+			etaStr = "ETA Unknown"
+		} else {
+			etaStr = "ETA " + etaStr
+		}
+
+		progressLine := fmt.Sprintf("[upload]  %5.1f%% of %s at %s %s", pct, formatBytes(total), speedStr, etaStr)
+		updateText := fmt.Sprintf("*Uploading %s...*\n_Title: `%s`_\n\n```\n%s\n```", mediaType, title, progressLine)
+		_, _ = ctx.Edit(progressMsgID, updateText)
+	}
+}
+
+// runYtdlpWithLiveProgress executes yt-dlp while periodically editing a WhatsApp progress message.
+func runYtdlpWithLiveProgress(
+	ctx *dispatch.Context,
+	dlCtx context.Context,
+	mediaType string,
+	title string,
+	args []string,
+) ([]byte, string, error) {
+	initialMsg := fmt.Sprintf("*Downloading %s...*\n_Title: `%s`_\n\n```\n(starting yt-dlp...)\n```", mediaType, title)
+	progressMsgID, err := ctx.ReplyWithID(initialMsg)
+	if err != nil {
+		logger.Warn("runYtdlpWithLiveProgress: failed to send initial progress message", "err", err)
+	}
+
+	var cmd *exec.Cmd
+	if stdbufPath, errLook := exec.LookPath("stdbuf"); errLook == nil {
+		fullArgs := append([]string{"-oL", "-eL", "yt-dlp"}, args...)
+		cmd = exec.CommandContext(dlCtx, stdbufPath, fullArgs...)
+	} else {
+		cmd = exec.CommandContext(dlCtx, "yt-dlp", args...)
+	}
+	cmd.Env = append(os.Environ(),
+		"PYTHONUNBUFFERED=1",
+		"CI=1",
+	)
+
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		if progressMsgID != "" {
+			_, _ = ctx.Edit(progressMsgID, fmt.Sprintf("*Download Error:*\n_Title: `%s`_\n\n```\nFailed to open stdout pipe: %v\n```", title, err))
+		}
+		return nil, progressMsgID, err
+	}
+
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		if progressMsgID != "" {
+			_, _ = ctx.Edit(progressMsgID, fmt.Sprintf("*Download Error:*\n_Title: `%s`_\n\n```\nFailed to open stderr pipe: %v\n```", title, err))
+		}
+		return nil, progressMsgID, err
+	}
+
+	if err := cmd.Start(); err != nil {
+		if progressMsgID != "" {
+			_, _ = ctx.Edit(progressMsgID, fmt.Sprintf("*Download Error:*\n_Title: `%s`_\n\n```\nFailed to start yt-dlp: %v\n```", title, err))
+		}
+		return nil, progressMsgID, err
+	}
+
+	var (
+		mu       sync.Mutex
+		outBuf   bytes.Buffer
+		updateCh = make(chan struct{}, 20)
+		done     = make(chan struct{})
+		readWg   sync.WaitGroup
+	)
+
+	readStream := func(r io.Reader) {
+		defer readWg.Done()
+		buf := make([]byte, 1024)
+		for {
+			n, rErr := r.Read(buf)
+			if n > 0 {
+				mu.Lock()
+				outBuf.Write(buf[:n])
+				mu.Unlock()
+
+				select {
+				case updateCh <- struct{}{}:
+				default:
+				}
+			}
+			if rErr != nil {
+				return
+			}
+		}
+	}
+
+	readWg.Add(2)
+	go readStream(stdoutPipe)
+	go readStream(stderrPipe)
+
+	if progressMsgID != "" {
+		go func() {
+			ticker := time.NewTicker(1200 * time.Millisecond)
+			defer ticker.Stop()
+
+			var lastEditedText string
+			var lastEditTime time.Time
+
+			doEdit := func() {
+				mu.Lock()
+				rawOutput := outBuf.String()
+				mu.Unlock()
+
+				cleaned := cleanYtdlpOutput(rawOutput)
+				if cleaned != lastEditedText && time.Since(lastEditTime) >= 900*time.Millisecond {
+					updateText := fmt.Sprintf("*Downloading %s...*\n_Title: `%s`_\n\n```\n%s\n```", mediaType, title, cleaned)
+					_, _ = ctx.Edit(progressMsgID, updateText)
+					lastEditedText = cleaned
+					lastEditTime = time.Now()
+				}
+			}
+
+			for {
+				select {
+				case <-done:
+					return
+				case <-updateCh:
+					doEdit()
+				case <-ticker.C:
+					doEdit()
+				}
+			}
+		}()
+	}
+
+	waitErr := cmd.Wait()
+	readWg.Wait()
+	close(done)
+
+	mu.Lock()
+	fullOutput := outBuf.Bytes()
+	mu.Unlock()
+
+	if waitErr != nil {
+		if progressMsgID != "" {
+			cleaned := cleanYtdlpOutput(string(fullOutput))
+			if cleaned == "" || cleaned == "(starting download...)" {
+				cleaned = waitErr.Error()
+			}
+			_, _ = ctx.Edit(progressMsgID, fmt.Sprintf("*Download Failed:*\n_Title: `%s`_\n\n```\n%s\n```", title, cleaned))
+		}
+		return fullOutput, progressMsgID, waitErr
+	}
+
+	if progressMsgID != "" {
+		_, _ = ctx.Edit(progressMsgID, fmt.Sprintf("*Processing %s...*\n_Title: `%s`_\n\n_Transcoding media for WhatsApp compatibility..._", mediaType, title))
+	}
+
+	return fullOutput, progressMsgID, nil
+}
+
 // downloadAndSendAudio downloads the best audio track, transcodes it to Opus OGG, and sends it.
 func downloadAndSendAudio(ctx *dispatch.Context, rawURL string, meta *MediaMeta) error {
 	cookiesPath, cleanup := getCookiesFilePath(ctx, rawURL)
@@ -336,33 +733,66 @@ func downloadAndSendAudio(ctx *dispatch.Context, rawURL string, meta *MediaMeta)
 	}
 	args = append(args, rawURL)
 
-	cmd := exec.CommandContext(dlCtx, "yt-dlp", args...)
-	if out, err := cmd.CombinedOutput(); err != nil {
+	title := safeMediaTitle(meta)
+	out, progressMsgID, err := runYtdlpWithLiveProgress(ctx, dlCtx, "Audio", title, args)
+	if err != nil {
 		return fmt.Errorf("audio download failed: %w (%s)", err, strings.TrimSpace(string(out)))
 	}
 
 	matches, _ := filepath.Glob(filepath.Join(os.TempDir(), fmt.Sprintf("ytdl_aud_raw_%d.*", nowNano)))
 	if len(matches) == 0 {
+		if progressMsgID != "" {
+			_, _ = ctx.Edit(progressMsgID, fmt.Sprintf("*Download Failed:*\n_Title: `%s`_\n\n```\nDownloaded audio file not found on disk\n```", title))
+		}
 		return fmt.Errorf("downloaded audio file not found on disk")
 	}
 	rawAudioFile := matches[0]
 
+	// Determine media duration
+	duration := 0.0
+	if meta != nil && meta.Duration > 0 {
+		duration = meta.Duration
+	} else {
+		duration = probeMediaDuration(dlCtx, rawAudioFile)
+	}
+
 	// Transcode audio to WhatsApp-compatible Opus OGG (48kHz, mono, VoIP tuned)
-	if err := EnsureWhatsAppOpus(ctx.GetSendContext(), rawAudioFile, opusOut); err != nil {
+	transcodeCallback := makeTranscodeProgressCallback(ctx, progressMsgID, "Audio", title)
+	if err := EnsureWhatsAppOpusWithProgress(ctx.GetSendContext(), rawAudioFile, opusOut, duration, transcodeCallback); err != nil {
 		logger.Warn("EnsureWhatsAppOpus transcode failed, attempting OpusPTTConvert on raw bytes", "err", err)
 		rawBytes, errRead := os.ReadFile(rawAudioFile)
 		if errRead != nil {
+			if progressMsgID != "" {
+				_, _ = ctx.Edit(progressMsgID, fmt.Sprintf("*Transcode Failed:*\n_Title: `%s`_\n\n```\n%v\n```", title, errRead))
+			}
 			return fmt.Errorf("read raw audio file failed: %w", errRead)
 		}
-		return sendOpusAudioPayload(ctx, rawBytes)
+		uploadCallback := makeUploadProgressCallback(ctx, progressMsgID, "Audio", title)
+		sendErr := sendOpusAudioPayload(ctx, rawBytes, uploadCallback)
+		if sendErr == nil && progressMsgID != "" {
+			if _, delErr := ctx.Delete(progressMsgID); delErr != nil {
+				_, _ = ctx.Edit(progressMsgID, fmt.Sprintf("*Audio Sent!* (100%%)\n_Title: `%s`_", title))
+			}
+		}
+		return sendErr
 	}
 
 	opusBytes, err := os.ReadFile(opusOut)
 	if err != nil || len(opusBytes) == 0 {
+		if progressMsgID != "" {
+			_, _ = ctx.Edit(progressMsgID, fmt.Sprintf("*Audio Processing Failed:*\n_Title: `%s`_\n\n```\nFailed to read transcoded opus file\n```", title))
+		}
 		return fmt.Errorf("failed to read transcoded opus file: %w", err)
 	}
 
-	return sendOpusAudioPayload(ctx, opusBytes)
+	uploadCallback := makeUploadProgressCallback(ctx, progressMsgID, "Audio", title)
+	sendErr := sendOpusAudioPayload(ctx, opusBytes, uploadCallback)
+	if sendErr == nil && progressMsgID != "" {
+		if _, delErr := ctx.Delete(progressMsgID); delErr != nil {
+			_, _ = ctx.Edit(progressMsgID, fmt.Sprintf("*Audio Sent!* (100%%)\n_Title: `%s`_", title))
+		}
+	}
+	return sendErr
 }
 
 // downloadAndSendVideo downloads video, converts it to guarantee WhatsApp compatibility, and sends with caption.
@@ -398,22 +828,35 @@ func downloadAndSendVideo(ctx *dispatch.Context, rawURL string, meta *MediaMeta)
 	}
 	args = append(args, rawURL)
 
-	cmd := exec.CommandContext(dlCtx, "yt-dlp", args...)
-	if out, err := cmd.CombinedOutput(); err != nil {
+	title := safeMediaTitle(meta)
+	out, progressMsgID, err := runYtdlpWithLiveProgress(ctx, dlCtx, "Video", title, args)
+	if err != nil {
 		return fmt.Errorf("video download failed: %w (%s)", err, strings.TrimSpace(string(out)))
 	}
 
 	matches, _ := filepath.Glob(filepath.Join(os.TempDir(), fmt.Sprintf("ytdl_vid_raw_%d.*", nowNano)))
 	if len(matches) == 0 {
+		if progressMsgID != "" {
+			_, _ = ctx.Edit(progressMsgID, fmt.Sprintf("*Download Failed:*\n_Title: `%s`_\n\n```\nDownloaded video file not found on disk\n```", title))
+		}
 		return fmt.Errorf("downloaded video file not found on disk")
 	}
 	rawVideoFile := matches[0]
+
+	// Determine media duration
+	duration := 0.0
+	if meta != nil && meta.Duration > 0 {
+		duration = meta.Duration
+	} else {
+		duration = probeMediaDuration(dlCtx, rawVideoFile)
+	}
 
 	// Transcode / remux video to ensure WhatsApp H.264/AAC/yuv420p/+faststart compatibility
 	transcodeCtx, cancelTranscode := context.WithTimeout(ctx.GetSendContext(), 4*time.Minute)
 	defer cancelTranscode()
 
-	transcodeErr := EnsureWhatsAppVideo(transcodeCtx, rawVideoFile, waVideoOut)
+	transcodeCallback := makeTranscodeProgressCallback(ctx, progressMsgID, "Video", title)
+	transcodeErr := EnsureWhatsAppVideoWithProgress(transcodeCtx, rawVideoFile, waVideoOut, duration, transcodeCallback)
 	targetVideoPath := waVideoOut
 	if transcodeErr != nil {
 		logger.Warn("EnsureWhatsAppVideo failed, falling back to original video file", "err", transcodeErr)
@@ -422,11 +865,107 @@ func downloadAndSendVideo(ctx *dispatch.Context, rawURL string, meta *MediaMeta)
 
 	videoBytes, err := os.ReadFile(targetVideoPath)
 	if err != nil || len(videoBytes) == 0 {
+		if progressMsgID != "" {
+			_, _ = ctx.Edit(progressMsgID, fmt.Sprintf("*Video Processing Failed:*\n_Title: `%s`_\n\n```\nFailed to read processed video file\n```", title))
+		}
 		return fmt.Errorf("failed to read processed video file: %w", err)
 	}
 
 	caption := buildCaption(meta)
-	return ctx.ReplyWithVideo(videoBytes, "video/mp4", caption)
+	uploadCallback := makeUploadProgressCallback(ctx, progressMsgID, "Video", title)
+	sendErr := ctx.ReplyWithVideoWithProgress(videoBytes, "video/mp4", caption, uploadCallback)
+	if sendErr == nil && progressMsgID != "" {
+		if _, delErr := ctx.Delete(progressMsgID); delErr != nil {
+			_, _ = ctx.Edit(progressMsgID, fmt.Sprintf("*Download Complete!*\n_Title: `%s`_", title))
+		}
+	}
+	return sendErr
+}
+
+func runFFmpegWithProgress(
+	ctx context.Context,
+	totalDuration float64,
+	onProgress func(processedSec, totalSec, speed float64),
+	args ...string,
+) error {
+	fullArgs := make([]string, 0, len(args)+6)
+	fullArgs = append(fullArgs, "-y", "-hide_banner", "-loglevel", "error")
+	if onProgress != nil {
+		fullArgs = append(fullArgs, "-progress", "pipe:1", "-nostats")
+	}
+	fullArgs = append(fullArgs, args...)
+
+	cmd := exec.CommandContext(ctx, "ffmpeg", fullArgs...)
+
+	var errBuf bytes.Buffer
+	cmd.Stderr = &errBuf
+
+	if onProgress == nil {
+		if out, err := cmd.Output(); err != nil {
+			errStr := strings.TrimSpace(errBuf.String())
+			if errStr == "" {
+				errStr = strings.TrimSpace(string(out))
+			}
+			return fmt.Errorf("ffmpeg transcode error: %w (%s)", err, errStr)
+		}
+		return nil
+	}
+
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("ffmpeg stdout pipe error: %w", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("ffmpeg start error: %w", err)
+	}
+
+	onProgress(0, totalDuration, 0)
+
+	scanner := bufio.NewScanner(stdoutPipe)
+	var (
+		currentSec   float64
+		currentSpeed float64
+	)
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key, val := parts[0], parts[1]
+		switch key {
+		case "out_time_us":
+			if us, pErr := strconv.ParseInt(val, 10, 64); pErr == nil {
+				currentSec = float64(us) / 1000000.0
+			}
+		case "speed":
+			cleanSpeed := strings.TrimSuffix(strings.TrimSpace(val), "x")
+			if spd, pErr := strconv.ParseFloat(cleanSpeed, 64); pErr == nil {
+				currentSpeed = spd
+			}
+		case "progress":
+			if val == "end" {
+				if totalDuration > 0 {
+					currentSec = totalDuration
+				}
+				onProgress(currentSec, totalDuration, currentSpeed)
+			} else {
+				onProgress(currentSec, totalDuration, currentSpeed)
+			}
+		}
+	}
+
+	waitErr := cmd.Wait()
+	if waitErr != nil {
+		errStr := strings.TrimSpace(errBuf.String())
+		return fmt.Errorf("ffmpeg transcode error: %w (%s)", waitErr, errStr)
+	}
+	return nil
 }
 
 // EnsureWhatsAppVideo converts or remuxes a video file to meet WhatsApp's strict compatibility requirements:
@@ -435,7 +974,17 @@ func downloadAndSendVideo(ctx *dispatch.Context, rawURL string, meta *MediaMeta)
 // - Even width & height dimensions
 // - AAC audio codec, 44.1kHz or 48kHz stereo/mono
 func EnsureWhatsAppVideo(ctx context.Context, inputPath, outputPath string) error {
-	cmd := exec.CommandContext(ctx, "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+	return EnsureWhatsAppVideoWithProgress(ctx, inputPath, outputPath, 0, nil)
+}
+
+// EnsureWhatsAppVideoWithProgress is EnsureWhatsAppVideo with transcoding progress estimation.
+func EnsureWhatsAppVideoWithProgress(
+	ctx context.Context,
+	inputPath, outputPath string,
+	totalDuration float64,
+	onProgress func(processedSec, totalSec, speed float64),
+) error {
+	return runFFmpegWithProgress(ctx, totalDuration, onProgress,
 		"-i", inputPath,
 		"-map", "0:v:0",
 		"-map", "0:a?",
@@ -451,15 +1000,21 @@ func EnsureWhatsAppVideo(ctx context.Context, inputPath, outputPath string) erro
 		"-movflags", "+faststart",
 		outputPath,
 	)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("ffmpeg video transcode error: %w (%s)", err, strings.TrimSpace(string(out)))
-	}
-	return nil
 }
 
 // EnsureWhatsAppOpus converts an audio file into an OGG Opus stream suitable for WhatsApp.
 func EnsureWhatsAppOpus(ctx context.Context, inputPath, outputPath string) error {
-	cmd := exec.CommandContext(ctx, "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+	return EnsureWhatsAppOpusWithProgress(ctx, inputPath, outputPath, 0, nil)
+}
+
+// EnsureWhatsAppOpusWithProgress is EnsureWhatsAppOpus with transcoding progress estimation.
+func EnsureWhatsAppOpusWithProgress(
+	ctx context.Context,
+	inputPath, outputPath string,
+	totalDuration float64,
+	onProgress func(processedSec, totalSec, speed float64),
+) error {
+	return runFFmpegWithProgress(ctx, totalDuration, onProgress,
 		"-i", inputPath,
 		"-vn",
 		"-c:a", "libopus",
@@ -472,14 +1027,10 @@ func EnsureWhatsAppOpus(ctx context.Context, inputPath, outputPath string) error
 		"-f", "ogg",
 		outputPath,
 	)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("ffmpeg audio transcode error: %w (%s)", err, strings.TrimSpace(string(out)))
-	}
-	return nil
 }
 
 // sendOpusAudioPayload uploads and dispatches Opus audio with waveform & PTT metadata.
-func sendOpusAudioPayload(ctx *dispatch.Context, audioBytes []byte) error {
+func sendOpusAudioPayload(ctx *dispatch.Context, audioBytes []byte, onProgress ...func(uploaded, total uint64)) error {
 	meta, err := media.OpusPTTConvert(ctx.GetSendContext(), audioBytes)
 	if err != nil || meta == nil || len(meta.Data) == 0 {
 		meta = &media.AudioPTTMeta{
@@ -487,7 +1038,12 @@ func sendOpusAudioPayload(ctx *dispatch.Context, audioBytes []byte) error {
 		}
 	}
 
-	uploaded, errUpload := ctx.Client.Upload(ctx.GetSendContext(), meta.Data, whatsmeow.MediaAudio)
+	var prog func(uploaded, total uint64)
+	if len(onProgress) > 0 {
+		prog = onProgress[0]
+	}
+
+	uploaded, errUpload := ctx.Client.UploadWithProgress(ctx.GetSendContext(), meta.Data, whatsmeow.MediaAudio, prog)
 	if errUpload != nil {
 		// Fallback to standard context reply
 		return ctx.ReplyWithAudio(meta.Data, "audio/ogg; codecs=opus")

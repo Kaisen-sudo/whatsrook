@@ -71,6 +71,44 @@ func VideoGif(ctx context.Context, client *whatsmeow.Client, chat types.JID, dat
 	return VideoWithMentions(ctx, client, chat, data, mimetype, caption, nil, true, quoted...)
 }
 
+// VideoWithProgress sends a video with an optional upload progress callback.
+func VideoWithProgress(ctx context.Context, client *whatsmeow.Client, chat types.JID, data []byte, mimetype, caption string, onProgress func(uploaded, total uint64), quoted ...*waE2E.ContextInfo) error {
+	if client == nil {
+		return fmt.Errorf("client unavailable")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if mimetype == "" {
+		mimetype = "video/mp4"
+	}
+	uploaded, err := client.UploadWithProgress(ctx, data, whatsmeow.MediaVideo, onProgress)
+	if err != nil {
+		return fmt.Errorf("upload video failed: %w", err)
+	}
+
+	var ci *waE2E.ContextInfo
+	if len(quoted) > 0 && quoted[0] != nil {
+		ci = quoted[0]
+	}
+
+	msg := &waE2E.Message{
+		VideoMessage: &waE2E.VideoMessage{
+			URL:           &uploaded.URL,
+			DirectPath:    &uploaded.DirectPath,
+			MediaKey:      uploaded.MediaKey,
+			Mimetype:      &mimetype,
+			FileEncSHA256: uploaded.FileEncSHA256,
+			FileSHA256:    uploaded.FileSHA256,
+			FileLength:    new(uint64(len(data))),
+			Caption:       &caption,
+			ContextInfo:   ci,
+		},
+	}
+	_, err = client.SendMessage(ctx, chat, msg)
+	return err
+}
+
 // VideoWithMentions sends a video with mentions to a chat.
 func VideoWithMentions(ctx context.Context, client *whatsmeow.Client, chat types.JID, data []byte, mimetype, caption string, mentions []types.JID, isGif bool, quoted ...*waE2E.ContextInfo) error {
 	if client == nil {

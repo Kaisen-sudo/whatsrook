@@ -68,6 +68,11 @@ type UploadResponse struct {
 //
 // The same applies to the other message types like DocumentMessage, just replace the struct type and Message field name.
 func (cli *Client) Upload(ctx context.Context, plaintext []byte, appInfo MediaType) (resp UploadResponse, err error) {
+	return cli.UploadWithProgress(ctx, plaintext, appInfo, nil)
+}
+
+// UploadWithProgress uploads the given attachment to WhatsApp servers and reports upload progress.
+func (cli *Client) UploadWithProgress(ctx context.Context, plaintext []byte, appInfo MediaType, onProgress func(uploaded, total uint64)) (resp UploadResponse, err error) {
 	resp.FileLength = uint64(len(plaintext))
 	resp.MediaKey = random.Bytes(32)
 
@@ -91,7 +96,17 @@ func (cli *Client) Upload(ctx context.Context, plaintext []byte, appInfo MediaTy
 	dataHash := sha256.Sum256(dataToUpload)
 	resp.FileEncSHA256 = dataHash[:]
 
-	err = cli.rawUpload(ctx, bytes.NewReader(dataToUpload), uint64(len(dataToUpload)), resp.FileEncSHA256, appInfo, false, &resp)
+	uploadSize := uint64(len(dataToUpload))
+	var reader io.Reader = bytes.NewReader(dataToUpload)
+	if onProgress != nil {
+		reader = &uploadProgressReader{
+			r:          reader,
+			total:      uploadSize,
+			onProgress: onProgress,
+		}
+	}
+
+	err = cli.rawUpload(ctx, reader, uploadSize, resp.FileEncSHA256, appInfo, false, &resp)
 	return
 }
 
@@ -103,6 +118,11 @@ func (cli *Client) Upload(ctx context.Context, plaintext []byte, appInfo MediaTy
 //
 // To use only one file, pass the same file as both plaintext and tempFile. This will cause the file to be overwritten with encrypted data.
 func (cli *Client) UploadReader(ctx context.Context, plaintext io.Reader, tempFile io.ReadWriteSeeker, appInfo MediaType) (resp UploadResponse, err error) {
+	return cli.UploadReaderWithProgress(ctx, plaintext, tempFile, appInfo, nil)
+}
+
+// UploadReaderWithProgress uploads the given attachment to WhatsApp servers from a reader and reports upload progress.
+func (cli *Client) UploadReaderWithProgress(ctx context.Context, plaintext io.Reader, tempFile io.ReadWriteSeeker, appInfo MediaType, onProgress func(uploaded, total uint64)) (resp UploadResponse, err error) {
 	resp.MediaKey = random.Bytes(32)
 	iv, cipherKey, macKey, _ := getMediaKeys(resp.MediaKey, appInfo)
 	var createdTempFile *os.File
@@ -135,8 +155,34 @@ func (cli *Client) UploadReader(ctx context.Context, plaintext io.Reader, tempFi
 		err = fmt.Errorf("failed to seek to start of temporary file: %w", err)
 		return
 	}
-	err = cli.rawUpload(ctx, tempFile, uploadSize, resp.FileEncSHA256, appInfo, false, &resp)
+	var uploadReader io.Reader = tempFile
+	if onProgress != nil {
+		uploadReader = &uploadProgressReader{
+			r:          tempFile,
+			total:      uploadSize,
+			onProgress: onProgress,
+		}
+	}
+	err = cli.rawUpload(ctx, uploadReader, uploadSize, resp.FileEncSHA256, appInfo, false, &resp)
 	return
+}
+
+type uploadProgressReader struct {
+	r          io.Reader
+	total      uint64
+	uploaded   uint64
+	onProgress func(uploaded, total uint64)
+}
+
+func (pr *uploadProgressReader) Read(p []byte) (int, error) {
+	n, err := pr.r.Read(p)
+	if n > 0 {
+		pr.uploaded += uint64(n)
+		if pr.onProgress != nil {
+			pr.onProgress(pr.uploaded, pr.total)
+		}
+	}
+	return n, err
 }
 
 // UploadNewsletter uploads the given attachment to WhatsApp servers without encrypting it first.
