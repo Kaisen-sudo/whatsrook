@@ -117,7 +117,10 @@ func (c *Container) Upgrade(ctx context.Context) error {
 		}
 	}
 
-	_, _ = c.db.Exec(ctx, "UPDATE whatsmeow_version SET version=19, compat=19 WHERE version > 19")
+	_, _ = c.db.Exec(ctx, "UPDATE whatsmeow_version SET version=20, compat=20 WHERE version > 20")
+	if exists, _ := c.db.ColumnExists(ctx, "whatsmeow_chat_settings", "wasa_root_secret_id"); exists {
+		_, _ = c.db.Exec(ctx, "UPDATE whatsmeow_version SET version=20, compat=20 WHERE version = 19")
+	}
 
 	err := c.db.Upgrade(ctx)
 	if err != nil {
