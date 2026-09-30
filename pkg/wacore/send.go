@@ -341,12 +341,13 @@ func (cli *Client) SendMessage(ctx context.Context, to types.JID, message *waE2E
 	}
 
 	if isBotMode {
-		// TODO Muse/Hatch messages need to be wrapped
-		//      They probably also don't have the same persona ID as Meta AI
-
 		if message.MessageContextInfo.BotMetadata == nil {
+			personaID := "867051314767696$760019659443059"
+			if to == types.MuseJID {
+				personaID = "1807055946647697$1"
+			}
 			message.MessageContextInfo.BotMetadata = &waAICommon.BotMetadata{
-				PersonaID: new("867051314767696$760019659443059"),
+				PersonaID: new(personaID),
 			}
 		}
 
@@ -1038,9 +1039,16 @@ func (cli *Client) sendDM(
 		return "", nil, err
 	}
 
+	recipientPlaintext := messagePlaintext
+	if to == types.MuseJID {
+		recipientPlaintext, err = cli.encryptWASAMessage(ctx, to, id, message)
+		if err != nil {
+			return "", nil, err
+		}
+	}
 	node, allDevices, err := cli.prepareMessageNode(
 		ctx, to, id, message, []types.JID{to, ownID.ToNonAD()},
-		messagePlaintext, deviceSentMessagePlaintext, timings, extraParams,
+		recipientPlaintext, deviceSentMessagePlaintext, timings, extraParams,
 	)
 	if err != nil {
 		return "", nil, err

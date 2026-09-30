@@ -213,6 +213,14 @@ func (n *NoopStore) PutArchived(ctx context.Context, chat types.JID, archived bo
 	return n.Error
 }
 
+func (n *NoopStore) PutWASARootSecretID(ctx context.Context, chat types.JID, id types.MessageID) error {
+	return n.Error
+}
+
+func (n *NoopStore) GetWASARootSecretID(ctx context.Context, chat types.JID) (types.MessageID, error) {
+	return "", n.Error
+}
+
 func (n *NoopStore) GetChatSettings(ctx context.Context, chat types.JID) (types.LocalChatSettings, error) {
 	return types.LocalChatSettings{}, n.Error
 }
