@@ -4,9 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
-	"net/http"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -22,7 +19,6 @@ import (
 	"whatsrook/cmd/info"
 	"whatsrook/cmd/settings"
 	"whatsrook/cmd/store"
-	"whatsrook/cmd/updater"
 	"whatsrook/util/qr"
 
 	_ "whatsrook/cmd/ai"
@@ -51,18 +47,14 @@ type BotConfig struct {
 	Business        bool
 	Database        string
 	Verbose         bool
-	WSPort          int
 	AsyncMessageAck bool
 }
 
-// Bot orchestrates the core WhatsApp client, event dispatcher, and API/WebSocket lifecycle.
+// Bot orchestrates the core WhatsApp client, event dispatcher, and session lifecycle.
 type Bot struct {
 	cfg          BotConfig
 	client       *whatsrook.Client
 	groupManager *group.GroupManager
-	hub          *Hub
-	httpServer   *http.Server
-	listener     net.Listener
 	startupTime  time.Time
 	loggedOut    atomic.Bool
 	onLoggedOut  func()
@@ -80,7 +72,7 @@ func NewBot(cfg BotConfig) *Bot {
 	return b
 }
 
-// Start boots the WhatsApp client, initializes the WebSocket API server, and enters the event loop.
+// Start boots the WhatsApp client and enters the session event loop.
 func (b *Bot) Start(ctx context.Context) error {
 	if b.cfg.Session == "" {
 		return errors.New("session phone number is required")
@@ -99,55 +91,6 @@ func (b *Bot) Start(ctx context.Context) error {
 	b.mu.Lock()
 	b.client = client
 	b.mu.Unlock()
-
-	hub := newHub()
-	b.mu.Lock()
-	b.hub = hub
-	b.mu.Unlock()
-
-	unsubLog := logger.AddHook(func(entry logger.LogEntry) {
-		hub.Broadcast(EventMessage{
-			Kind:    EventLog,
-			Payload: entry,
-		})
-	})
-	defer unsubLog()
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/ws", hub.ServeWS(false))
-
-	// Bind to port :0 to allow the OS to allocate a dynamic ephemeral port
-	bindAddr := ":0"
-	if b.cfg.WSPort > 0 {
-		bindAddr = fmt.Sprintf(":%d", b.cfg.WSPort)
-	}
-
-	listener, err := net.Listen("tcp", bindAddr)
-	if err != nil {
-		return fmt.Errorf("failed to bind API listener on %s: %w", bindAddr, err)
-	}
-
-	boundPort := listener.Addr().(*net.TCPAddr).Port
-	b.listener = listener
-
-	server := &http.Server{Handler: mux}
-	b.httpServer = server
-
-	go func() {
-		logger.Info("API and WebSocket server online", "port", boundPort, "session", b.cfg.Session, "addr", listener.Addr().String())
-		if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Error("http server runtime error", "err", err)
-		}
-	}()
-
-	defer func() {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		_ = server.Shutdown(shutdownCtx)
-		if listener != nil {
-			_ = listener.Close()
-		}
-	}()
 
 	for {
 		err := b.runSession(ctx)
@@ -314,127 +257,13 @@ func (b *Bot) runSession(ctx context.Context) error {
 
 	go b.startPresenceHeartbeat(sessionCtx, cli)
 
-	for {
-		select {
-		case <-sessionCtx.Done():
-			if b.loggedOut.Load() {
-				logger.Warn("session terminated during runtime; purging device record")
-				b.client.ClearSessionDB(ctx, "")
-				return whatsrook.ErrLoggedOut
-			}
-			return nil
-		case ctrl := <-b.hub.Control:
-			ack := b.Controller(sessionCtx, ctrl)
-			b.hub.Broadcast(ack)
-		}
-		if b.loggedOut.Load() {
-			logger.Warn("session terminated during runtime; purging device record")
-			b.client.ClearSessionDB(ctx, "")
-			return whatsrook.ErrLoggedOut
-		}
+	<-sessionCtx.Done()
+	if b.loggedOut.Load() {
+		logger.Warn("session terminated during runtime; purging device record")
+		b.client.ClearSessionDB(ctx, "")
+		return whatsrook.ErrLoggedOut
 	}
-}
-
-func (b *Bot) GetStatsPayload(ctx context.Context) StatsPayload {
-	var connected bool
-	var loggedIn bool
-	var jidStr *string
-	var pushName *string
-	var botName *string
-	defaultPrefix := "."
-	prefix := &defaultPrefix
-	var mode *string
-	var dbContactsCount uint32
-	var dbDriver string = "postgres"
-	if b.client != nil && b.client.Config.Database != "" {
-		dbDriver = b.client.Config.Database
-	}
-	var anticallEnabled bool
-	var likestatusEnabled bool
-	var sudoersCount uint32
-
-	cli := b.client.WAClient()
-	if cli != nil {
-		connected = cli.IsConnected()
-		loggedIn = cli.IsLoggedIn()
-
-		if cli.Store != nil && cli.Store.ID != nil {
-			str := cli.Store.ID.String()
-			jidStr = &str
-			if cli.Store.PushName != "" {
-				pn := cli.Store.PushName
-				pushName = &pn
-			}
-		}
-
-		if s, ok := cli.Store.Identities.(*sqlstore.SQLStore); ok {
-			if contacts, err := s.GetAllContacts(ctx); err == nil {
-				dbContactsCount = uint32(len(contacts))
-			}
-
-			if bn, err := store.GetSetting(ctx, s, settings.BotNameSettingKey); err == nil && bn != "" {
-				botName = &bn
-			}
-			if p, err := store.GetSetting(ctx, s, settings.PrefixSettingKey); err == nil && p != "" {
-				prefix = &p
-			}
-			if m, err := store.GetSetting(ctx, s, "mode"); err == nil && m != "" {
-				mode = &m
-			}
-			if ac, err := store.GetSetting(ctx, s, "anticall_status"); err == nil && ac == "on" {
-				anticallEnabled = true
-			}
-			if ls, err := store.GetSetting(ctx, s, "likestatus_status"); err == nil && ls == "on" {
-				likestatusEnabled = true
-			}
-			if sudoRaw, err := store.GetSetting(ctx, s, "sudoers"); err == nil && sudoRaw != "" {
-				parts := strings.Fields(strings.ReplaceAll(sudoRaw, ",", " "))
-				sudoersCount = uint32(len(parts))
-			}
-		}
-	}
-
-	uptimeSec := int64(time.Since(b.startupTime).Seconds())
-	uptimeFmt := util.FormatDuration(time.Duration(uptimeSec) * time.Second)
-
-	var ms runtime.MemStats
-	runtime.ReadMemStats(&ms)
-	memUsed := ms.Alloc
-	memUsedFmt := util.FormatBytes(memUsed)
-
-	wsClients := uint32(0)
-	if b.hub != nil {
-		wsClients = uint32(b.hub.ConnectedClientsCount())
-	}
-
-	activePlugins := uint32(dispatch.Count())
-
-	return StatsPayload{
-		Connected:           connected,
-		LoggedIn:            loggedIn,
-		JID:                 jidStr,
-		PushName:            pushName,
-		BotName:             botName,
-		Prefix:              prefix,
-		Mode:                mode,
-		UptimeSeconds:       uptimeSec,
-		UptimeFormatted:     uptimeFmt,
-		MemoryUsedBytes:     memUsed,
-		MemoryUsedFormatted: memUsedFmt,
-		MemorySysBytes:      ms.Sys,
-		ActivePluginsCount:  activePlugins,
-		ConnectedWSClients:  wsClients,
-		PlatformOS:          runtime.GOOS,
-		GoVersion:           runtime.Version(),
-		AppVersion:          updater.GetAppVersion(),
-		SessionPhone:        b.cfg.Session,
-		NetworkPaused:       false,
-		DBContactsCount:     dbContactsCount,
-		DBDriver:            dbDriver,
-		AnticallEnabled:     anticallEnabled,
-		LikestatusEnabled:   likestatusEnabled,
-		SudoersCount:        sudoersCount,
-	}
+	return nil
 }
 
 func (b *Bot) runPairCode(ctx context.Context) error {
@@ -444,10 +273,6 @@ func (b *Bot) runPairCode(ctx context.Context) error {
 	}
 	logger.Debug("pair code issued", "code", code)
 	logger.Info(fmt.Sprintf("PAIR CODE: %s", code))
-	b.hub.Broadcast(EventMessage{
-		Kind:    EventPairCode,
-		Payload: PairCodePayload{Code: code},
-	})
 	return nil
 }
 
@@ -487,10 +312,6 @@ func (b *Bot) runQR(ctx context.Context) error {
 			if termQR := qr.RenderTerminal(evt.Code); termQR != "" {
 				fmt.Printf("\n%s\n", termQR)
 			}
-			b.hub.Broadcast(EventMessage{
-				Kind:    EventPairQR,
-				Payload: PairQRPayload{Code: evt.Code},
-			})
 		case "success":
 			if qrServer != nil {
 				qrServer.SetPaired()
@@ -519,19 +340,12 @@ func (b *Bot) WAEventHandler(evt any) {
 		cli = b.client.WAClient()
 	}
 
-	broadcast := func(msg EventMessage) {
-		if b.hub != nil {
-			b.hub.Broadcast(msg)
-		}
-	}
-
 	switch v := evt.(type) {
 	case *events.QR:
 		_ = v // QR frames handled directly via runQR channel loop
 
 	case *events.PairSuccess:
 		logger.Info("pairing completed successfully", "event", v)
-		broadcast(simpleEvent(EventPairSuccess))
 		// After QR pairing, WhatsApp drops the pairing socket via stream:error 516.
 		// PairSuccess fires while the socket is still alive, so we must wait for the
 		// disconnect before calling Connect() — whatsmeow does not emit events.Disconnected
@@ -555,15 +369,10 @@ func (b *Bot) WAEventHandler(evt any) {
 
 	case *events.PairError:
 		logger.Warn("pairing procedure failed", "err", v.Error, "event", v)
-		broadcast(EventMessage{
-			Kind:    EventPairError,
-			Payload: PairErrorPayload{Reason: v.Error.Error()},
-		})
 
 	case *events.LoggedOut:
 		logger.Warn("device logged out by remote session", "reason", v.Reason, "event", v)
 		b.loggedOut.Store(true)
-		broadcast(simpleEvent(EventLoggedOut))
 		b.mu.Lock()
 		onLoggedOut := b.onLoggedOut
 		b.mu.Unlock()
@@ -573,11 +382,9 @@ func (b *Bot) WAEventHandler(evt any) {
 
 	case *events.Disconnected:
 		logger.Info("Socket connection disconnected", "event", v)
-		broadcast(simpleEvent(EventDisconnected))
 
 	case *events.Connected:
 		logger.Info("Socket connection established", "session", b.cfg.Session, "event", v)
-		broadcast(simpleEvent(EventConnected))
 		if cli != nil {
 			if len(cli.Store.PushName) == 0 {
 				cli.Store.PushName = "WhatsRook"
@@ -620,14 +427,7 @@ func (b *Bot) WAEventHandler(evt any) {
 					"timestamp", v.Info.Timestamp,
 					"startupTime", b.startupTime,
 				)
-				if dispatch.Dispatch(context.Background(), cli, v) {
-					return
-				}
-				payload := buildIncomingMessagePayload(v)
-				b.hub.Broadcast(EventMessage{
-					Kind:    EventIncomingMessage,
-					Payload: payload,
-				})
+				dispatch.Dispatch(context.Background(), cli, v)
 				return
 			}
 
@@ -673,12 +473,6 @@ func (b *Bot) WAEventHandler(evt any) {
 				return
 			}
 			logger.Debug("[PERF] dispatch.Dispatch completed (unhandled)", "msgID", msgID, "elapsed", time.Since(t0))
-
-			payload := buildIncomingMessagePayload(v)
-			b.hub.Broadcast(EventMessage{
-				Kind:    EventIncomingMessage,
-				Payload: payload,
-			})
 		}(v)
 
 	case *events.Presence:
@@ -697,14 +491,6 @@ func (b *Bot) WAEventHandler(evt any) {
 	case *events.CallOffer:
 		logger.Debug("incoming call offer received", "event", v)
 		calls.HandleAntiCallEvent(context.Background(), cli, v, b.startupTime)
-		b.hub.Broadcast(EventMessage{
-			Kind: EventIncomingCall,
-			Payload: IncomingCallPayload{
-				CallID:    v.CallID,
-				From:      v.CallCreator.String(),
-				Timestamp: v.Timestamp,
-			},
-		})
 
 	case *events.GroupInfo:
 		logger.Debug("group metadata update received", "event", v)
@@ -814,37 +600,6 @@ func (b *Bot) WAEventHandler(evt any) {
 
 	default:
 		logger.Debug("unhandled event received", "type", fmt.Sprintf("%T", evt), "event", evt)
-	}
-}
-
-func buildIncomingMessagePayload(v *events.Message) IncomingMessagePayload {
-	text := whatsrook.ExtractMessageText(v)
-	mediaType := whatsrook.GetMediaType(v.Message)
-
-	var quotedID string
-	var quotedText string
-
-	if ext := v.Message.GetExtendedTextMessage(); ext != nil && ext.GetContextInfo() != nil {
-		ci := ext.GetContextInfo()
-		quotedID = ci.GetStanzaID()
-		if ci.QuotedMessage != nil {
-			quotedText = whatsrook.ExtractTextFromProto(ci.QuotedMessage)
-		}
-	}
-
-	return IncomingMessagePayload{
-		From:       v.Info.Chat.String(),
-		Chat:       v.Info.Chat.String(),
-		Sender:     v.Info.Sender.String(),
-		Text:       text,
-		MessageID:  v.Info.ID,
-		PushName:   v.Info.PushName,
-		Timestamp:  v.Info.Timestamp,
-		IsGroup:    v.Info.IsGroup,
-		IsFromMe:   v.Info.IsFromMe,
-		MediaType:  mediaType,
-		QuotedID:   quotedID,
-		QuotedText: quotedText,
 	}
 }
 

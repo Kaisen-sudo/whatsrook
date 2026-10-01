@@ -7,7 +7,6 @@ replace whatsrook => ../
 replace go.mau.fi/whatsmeow => ../pkg/wacore
 
 require (
-	github.com/coder/websocket v1.8.15
 	github.com/lib/pq v1.12.3
 	github.com/rs/zerolog v1.35.1
 	github.com/tcolgate/mp3 v0.0.0-20170426193717-e79c5a46d300
@@ -19,6 +18,7 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.2.0 // indirect
+	github.com/coder/websocket v1.8.15 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hajimehoshi/go-mp3 v0.3.4 // indirect

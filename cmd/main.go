@@ -124,7 +124,6 @@ func main() {
 		Business:        args.Business,
 		Database:        args.Database,
 		Verbose:         args.Verbose,
-		WSPort:          0,
 		AsyncMessageAck: true,
 	})
 
