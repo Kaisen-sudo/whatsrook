@@ -24,13 +24,14 @@ import (
 	_ "github.com/lib/pq"
 	_ "modernc.org/sqlite"
 
-	"whatsrook/util"
 	"whatsrook/util/botctx"
 	"whatsrook/util/cache"
 	"whatsrook/util/logger"
 	"whatsrook/util/message"
 	"whatsrook/util/qr"
 	"whatsrook/util/send"
+	"whatsrook/util/system"
+	"whatsrook/util/webp"
 )
 
 type ClientType int
@@ -778,10 +779,10 @@ var (
 	NewMemoryStore       = cache.NewMemoryStore
 	InitCache            = cache.Init
 	NewWaLogger          = logger.NewWaLogger
-	GetSystemStats       = util.GetStats
-	FormatBytes          = util.FormatBytes
-	AddStickerMetadata   = util.AddStickerMetadata
-	WriteStickerMetadata = util.WriteStickerMetadata
+	GetSystemStats       = system.GetStats
+	FormatBytes          = system.FormatBytes
+	AddStickerMetadata   = webp.AddStickerMetadata
+	WriteStickerMetadata = webp.WriteStickerMetadata
 	EncodePNG            = qr.EncodePNG
 	StartQRServer        = qr.StartServer
 )

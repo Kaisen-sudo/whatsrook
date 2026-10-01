@@ -12,8 +12,8 @@ import (
 	"whatsrook/cmd/games"
 	"whatsrook/cmd/store"
 	"whatsrook/cmd/updater"
-	"whatsrook/util"
 	"whatsrook/util/logger"
+	"whatsrook/util/system"
 
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
@@ -85,7 +85,7 @@ func RenderFilterTemplate(ctx context.Context, client *whatsmeow.Client, evt *ev
 	}
 
 	startMeasure := time.Now()
-	uptime := util.FormatDuration(time.Since(util.BootTime))
+	uptime := system.FormatDuration(time.Since(system.BootTime))
 
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)

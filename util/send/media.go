@@ -8,8 +8,8 @@ import (
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"
 
-	"whatsrook/util"
 	"whatsrook/util/logger"
+	"whatsrook/util/webp"
 )
 
 // Image sends an image to a chat without quoting.
@@ -244,8 +244,8 @@ func Sticker(ctx context.Context, client *whatsmeow.Client, chat types.JID, data
 		return fmt.Errorf("invalid sticker data: missing WebP header")
 	}
 
-	if meta, err := util.GetStickerMetadata(data); err != nil || meta == nil {
-		if withMeta, err := util.AddStickerMetadata(data, pack, author); err == nil {
+	if meta, err := webp.GetStickerMetadata(data); err != nil || meta == nil {
+		if withMeta, err := webp.AddStickerMetadata(data, pack, author); err == nil {
 			data = withMeta
 		} else {
 			logger.Warn("SendSticker: could not inject sticker metadata", "err", err)

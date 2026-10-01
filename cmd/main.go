@@ -16,9 +16,9 @@ import (
 	"whatsrook"
 	"whatsrook/cmd/store"
 	"whatsrook/cmd/updater"
-	"whatsrook/util"
 	"whatsrook/util/cache"
 	"whatsrook/util/logger"
+	"whatsrook/util/system"
 )
 
 // Version is the application version (set at build time).
@@ -43,7 +43,7 @@ type CLIArgs struct {
 func main() {
 	defer func() {
 		if r := recover(); r != nil {
-			crashPath := util.RecordCrash(r, "top-level process panic")
+			crashPath := system.RecordCrash(r, "top-level process panic")
 			logger.Error("Fatal runtime crash", "panic", r, "crash_log", crashPath)
 			os.Exit(1)
 		}
