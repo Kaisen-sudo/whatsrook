@@ -2,7 +2,7 @@ version: "3"
 
 env:
   PATH:
-    sh: echo "$HOME/go/bin:$PATH"
+    sh: echo "$(go env GOPATH)/bin:$HOME/go/bin:$PATH"
 
 vars:
   BINARY_NAME: "whatsrook{{exeExt}}"
@@ -19,79 +19,85 @@ tasks:
     cmds:
       - go mod download
       - go mod tidy
-      - cd pkg/wacore && go mod download && go mod tidy
-      - cd cmd && go mod download && go mod tidy
+      - go -C pkg/wacore mod download
+      - go -C pkg/wacore mod tidy
+      - go -C cmd mod download
+      - go -C cmd mod tidy
+      - go -C scripts mod download
+      - go -C scripts mod tidy
 
   fix:
     desc: Apply go fix modernizers across all modules
     cmds:
       - go fix ./...
-      - cd pkg/wacore && go fix ./...
-      - cd cmd && go fix ./...
+      - go -C pkg/wacore fix ./...
+      - go -C cmd fix ./...
+      - go -C scripts fix ./...
 
   fmt:
     desc: Format, vet, and staticcheck all Go code
     cmds:
       - go fmt ./...
+      - go -C pkg/wacore fmt ./...
+      - go -C cmd fmt ./...
+      - go -C scripts fmt ./...
       - gofmt -w -s .
-      - cd pkg/wacore && go fmt ./...
-      - cd pkg/wacore && gofmt -w -s .
-      - cd cmd && go fmt ./...
-      - cd cmd && gofmt -w -s .
       - go vet ./...
-      - cd pkg/wacore && go vet ./...
-      - cd cmd && go vet ./...
+      - go -C pkg/wacore vet ./...
+      - go -C cmd vet ./...
+      - go -C scripts vet ./...
       - staticcheck ./...
-      - cd pkg/wacore && staticcheck ./...
-      - cd cmd && staticcheck ./...
-      - cd pkg/sdk && (command -v cargo >/dev/null 2>&1 && cargo fmt --all || true)
-      - cd pkg/externals && (command -v cargo >/dev/null 2>&1 && cargo fmt --all || true)
+      - (cd pkg/wacore && staticcheck ./...)
+      - (cd cmd && staticcheck ./...)
+      - (cd scripts && staticcheck ./...)
+      - cargo fmt --manifest-path pkg/sdk/Cargo.toml --all
+      - cargo fmt --manifest-path pkg/externals/Cargo.toml --all
 
   deadcode:
     desc: Analyze unreachable functions across the codebase
     cmds:
-      - cd cmd && (command -v deadcode >/dev/null 2>&1 && deadcode . || ([ -x "$(go env GOPATH)/bin/deadcode" ] && "$(go env GOPATH)/bin/deadcode" .) || true)
+      - cd cmd && deadcode .
 
   test:
     desc: Run the test suite
     cmds:
-      - |
-        PKGS=$(go list -f '{{"{{"}}if .TestGoFiles{{"}}"}}{{"{{"}}.ImportPath{{"}}"}}{{"{{"}}end{{"}}"}}' ./...)
-        if [ -n "$PKGS" ]; then go test -v -timeout 120s $PKGS; fi
-      - cd pkg/wacore && go test -v -timeout 60s ./...
-      - cd cmd && go test -v -timeout 60s ./...
-      - cd pkg/sdk && (command -v cargo >/dev/null 2>&1 && cargo test || true)
-      - cd pkg/externals && (command -v cargo >/dev/null 2>&1 && cargo test || true)
+      - go test -v -timeout 120s ./...
+      - go -C pkg/wacore test -v -timeout 60s ./...
+      - go -C cmd test -v -timeout 60s ./...
+      - cargo test --manifest-path pkg/sdk/Cargo.toml
+      - cargo test --manifest-path pkg/externals/Cargo.toml
 
   update:
     desc: Upgrade all Go dependencies
     cmds:
       - go get -u ./...
       - go mod tidy
-      - cd pkg/wacore && go get -u ./...
-      - cd pkg/wacore && go mod tidy
-      - cd cmd && go get -u ./...
-      - cd cmd && go mod tidy
+      - go -C pkg/wacore get -u ./...
+      - go -C pkg/wacore mod tidy
+      - go -C cmd get -u ./...
+      - go -C cmd mod tidy
+      - go -C scripts get -u ./...
+      - go -C scripts mod tidy
 
   bump:
     desc: Bump monthly release version (YY.MM.CRYPTO_PATCH_EXTRA_BUILD_INFO) and refresh binary resources
     cmds:
-      - go -C scripts run . bump {{.cmd_ARGS}}
+      - go -C scripts run . bump {{.CLI_ARGS}}
 
   proto:
     desc: Compile and update all wacore protobuf definitions
     cmds:
-      - go -C scripts run . proto {{.cmd_ARGS}}
+      - go -C scripts run . proto {{.CLI_ARGS}}
 
   proto:sync:
     desc: Pull latest WAProto schema, split into modular pkg/wacore/proto, and recompile
     cmds:
-      - go -C scripts run . proto --sync {{.cmd_ARGS}}
+      - go -C scripts run . proto --sync {{.CLI_ARGS}}
 
   res:
     desc: Generate Windows binary resource metadata and icons from Cloudflare R2 logo
     cmds:
-      - go -C scripts run . res
+      - go -C scripts run . res {{.CLI_ARGS}}
 
   sign:
     desc: Digitally sign Windows PE executable binary with SHA-256 Authenticode signature
@@ -107,46 +113,34 @@ tasks:
         platforms: [linux, darwin, windows]
       - cmd: go -C scripts run . res
         platforms: [windows]
-      - cd cmd && go build -trimpath -ldflags="-s -w -buildid=" -v -o ../{{.BIN_PATH}} .
+      - go -C cmd build -trimpath -ldflags="-s -w -buildid=" -v -o ../{{.BIN_PATH}} .
 
   build:externals:
     desc: Build all Rust external plugin binaries
     cmds:
-      - cd pkg/externals && cargo build --release
-
-  build:web:
-    desc: Build static web session generator application
-    cmds:
-      - cd web && bun run build
+      - cargo build --manifest-path pkg/externals/Cargo.toml --release
 
   clean:
     desc: Remove build artifacts and temporary files
     cmds:
-      - cmd: rm -rf bin/ tmp/
+      - cmd: rm -rf bin/ tmp/ coverage.txt
         platforms: [linux, darwin]
-      - cmd: powershell -Command "Remove-Item -Recurse -Force bin, tmp -ErrorAction SilentlyContinue"
+      - cmd: powershell -Command "if (Test-Path bin) { Remove-Item -Recurse -Force bin }; if (Test-Path tmp) { Remove-Item -Recurse -Force tmp }; if (Test-Path coverage.txt) { Remove-Item -Force coverage.txt }"
         platforms: [windows]
+      - cargo clean --manifest-path pkg/sdk/Cargo.toml
+      - cargo clean --manifest-path pkg/externals/Cargo.toml
 
   pg:start:
     desc: Start local PostgreSQL database server on port 5433
     cmds:
-      - |
-        PG_BIN=$(which pg_ctl 2>/dev/null || ls /usr/pgsql-*/bin/pg_ctl 2>/dev/null | head -n 1)
-        if [ -z "$PG_BIN" ]; then echo "pg_ctl not found"; exit 1; fi
-        $PG_BIN -D ~/.whatsrook/pgdata -l ~/.whatsrook/postgres.log -o "-p 5433 -k ~/.whatsrook/pgdata" start || true
+      - pg_ctl -D ~/.whatsrook/pgdata -l ~/.whatsrook/postgres.log -o "-p 5433 -k ~/.whatsrook/pgdata" start
 
   pg:stop:
     desc: Stop local PostgreSQL database server
     cmds:
-      - |
-        PG_BIN=$(which pg_ctl 2>/dev/null || ls /usr/pgsql-*/bin/pg_ctl 2>/dev/null | head -n 1)
-        if [ -z "$PG_BIN" ]; then echo "pg_ctl not found"; exit 1; fi
-        $PG_BIN -D ~/.whatsrook/pgdata stop || true
+      - pg_ctl -D ~/.whatsrook/pgdata stop
 
   pg:status:
     desc: Check local PostgreSQL database server status
     cmds:
-      - |
-        PG_BIN=$(which pg_ctl 2>/dev/null || ls /usr/pgsql-*/bin/pg_ctl 2>/dev/null | head -n 1)
-        if [ -z "$PG_BIN" ]; then echo "pg_ctl not found"; exit 1; fi
-        $PG_BIN -D ~/.whatsrook/pgdata status || true
+      - pg_ctl -D ~/.whatsrook/pgdata status
