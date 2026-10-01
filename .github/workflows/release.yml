@@ -73,24 +73,31 @@ jobs:
           - os: linux
             arch: amd64
             ext: ""
+            upx: true
           - os: linux
             arch: arm64
             ext: ""
+            upx: true
           - os: android
             arch: arm64
             ext: ""
+            upx: false
           - os: windows
             arch: amd64
             ext: ".exe"
+            upx: true
           - os: windows
             arch: arm64
             ext: ".exe"
+            upx: false
           - os: darwin
             arch: amd64
             ext: ""
+            upx: false
           - os: darwin
             arch: arm64
             ext: ""
+            upx: false
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -133,6 +140,20 @@ jobs:
           fi
           (cd cmd && go build -trimpath -ldflags="-s -w -buildid= -X main.Version=${APP_VERSION} -X whatsrook/cmd/updater.BinaryVersion=${APP_VERSION} -X whatsrook/cmd/updater.CommitSHA=${COMMIT_SHA}" -v -o "../$BIN_NAME" .)
           echo "BIN_NAME=$BIN_NAME" >> "$GITHUB_ENV"
+
+      - name: Setup UPX
+        if: matrix.target.upx
+        uses: crazy-max/ghaction-upx@v3
+        with:
+          install-only: true
+
+      - name: Compress Binary with UPX
+        if: matrix.target.upx
+        run: |
+          echo "Compressing $BIN_NAME with UPX (original size: $(du -h "$BIN_NAME" | cut -f1))..."
+          upx --best "$BIN_NAME"
+          upx -t "$BIN_NAME"
+          echo "Compressed size: $(du -h "$BIN_NAME" | cut -f1)"
 
       - name: Sign Windows Binary
         if: matrix.target.os == 'windows'

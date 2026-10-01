@@ -115,6 +115,13 @@ tasks:
         platforms: [windows]
       - go -C cmd build -trimpath -ldflags="-s -w -buildid=" -v -o ../{{.BIN_PATH}} .
 
+  build:upx:
+    desc: "Build stripped binary and compress with UPX into {{.BIN_PATH}}"
+    cmds:
+      - task: build
+      - upx --best {{.BIN_PATH}}
+      - upx -t {{.BIN_PATH}}
+
   build:externals:
     desc: Build all Rust external plugin binaries
     cmds:
