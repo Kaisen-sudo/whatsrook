@@ -960,6 +960,10 @@ func runFFmpegWithProgress(
 		}
 	}
 
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("error reading stdout: %w", err)
+	}
+
 	waitErr := cmd.Wait()
 	if waitErr != nil {
 		errStr := strings.TrimSpace(errBuf.String())
