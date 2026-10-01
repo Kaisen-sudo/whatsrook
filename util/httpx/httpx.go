@@ -3,12 +3,10 @@ package httpx
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand/v2"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
 )
 
@@ -72,45 +69,17 @@ func WithUserAgent(ua string) RequestOption {
 
 // HybridTransport transparently supports HTTP/3 (QUIC) with fallback to HTTP/2 and HTTP/1.1.
 type HybridTransport struct {
-	h3Transport *http3.Transport
-	tcpClient   *http.Client
+	H3          *http3.Transport
+	TCP         http.RoundTripper
 	h3Supported sync.Map // host -> bool
 }
 
-// NewHybridTransport constructs a HybridTransport instance with sensible defaults.
+// NewHybridTransport constructs a HybridTransport utilizing quic-go's built-in
+// HTTP/3 transport defaults and Go's standard http.DefaultTransport.
 func NewHybridTransport() *HybridTransport {
-	tlsConfig := &tls.Config{
-		MinVersion: tls.VersionTLS12,
-	}
-
-	tcpTransport := &http.Transport{
-		DialContext: (&net.Dialer{
-			Timeout:   10 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
-		TLSClientConfig:       tlsConfig,
-		ForceAttemptHTTP2:     true,
-		MaxIdleConns:          100,
-		MaxIdleConnsPerHost:   10,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-	}
-
-	h3Transport := &http3.Transport{
-		TLSClientConfig: tlsConfig,
-		QUICConfig: &quic.Config{
-			MaxIdleTimeout:  30 * time.Second,
-			KeepAlivePeriod: 10 * time.Second,
-		},
-	}
-
 	return &HybridTransport{
-		h3Transport: h3Transport,
-		tcpClient: &http.Client{
-			Transport: tcpTransport,
-			Timeout:   DefaultHTTPTimeout,
-		},
+		H3:  &http3.Transport{},
+		TCP: http.DefaultTransport,
 	}
 }
 
@@ -126,60 +95,65 @@ func NewClient(timeout ...time.Duration) *http.Client {
 	}
 }
 
-// altSvcAdvertisesH3 reports whether an Alt-Svc header value advertises an
-// HTTP/3 alternative (an "h3" or "h3-*" protocol ID), rather than merely
-// advertising some other alternative service such as h2.
-func altSvcAdvertisesH3(altSvc string) bool {
-	for entry := range strings.SplitSeq(altSvc, ",") {
-		entry = strings.TrimSpace(entry)
-		proto, _, ok := strings.Cut(entry, "=")
-		if !ok {
-			continue
-		}
-		proto = strings.Trim(proto, `"`)
-		if proto == "h3" || strings.HasPrefix(proto, "h3-") {
-			return true
-		}
-	}
-	return false
-}
-
-// RoundTrip executes a single HTTP transaction.
+// RoundTrip executes a single HTTP transaction. It routes HTTPS requests to HTTP/3
+// if previously advertised via Alt-Svc, with transparent fallback to TCP.
 func (t *HybridTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.URL.Scheme != "https" {
-		return t.tcpClient.Transport.RoundTrip(req)
+	h3 := t.H3
+	if h3 == nil {
+		h3 = &http3.Transport{}
+	}
+	tcp := t.TCP
+	if tcp == nil {
+		tcp = http.DefaultTransport
+	}
+
+	if req.URL == nil || req.URL.Scheme != "https" {
+		return tcp.RoundTrip(req)
 	}
 
 	host := req.URL.Host
 	if supported, ok := t.h3Supported.Load(host); ok && supported.(bool) {
-		resp, err := t.h3Transport.RoundTrip(req)
+		var getBody func() (io.ReadCloser, error)
+		if req.Body != nil && req.GetBody != nil {
+			getBody = req.GetBody
+		}
+
+		resp, err := h3.RoundTrip(req)
 		if err == nil {
 			return resp, nil
 		}
-		// This host previously advertised H3 support but the attempt just
-		// failed (e.g. UDP blocked on this network path); fall back for
-		// this and future requests rather than retrying H3 every time.
+
+		// This host previously advertised H3 support but the attempt failed
+		// (e.g. UDP blocked on this network path); fall back to TCP.
 		t.h3Supported.Store(host, false)
+
+		if getBody != nil {
+			if body, bErr := getBody(); bErr == nil {
+				req.Body = body
+			}
+		}
 	}
 
-	resp, err := t.tcpClient.Transport.RoundTrip(req)
+	resp, err := tcp.RoundTrip(req)
 	if err != nil {
 		return nil, err
 	}
 
-	if altSvcAdvertisesH3(resp.Header.Get("Alt-Svc")) {
+	if altSvc := resp.Header.Get("Alt-Svc"); altSvc != "" && (strings.Contains(altSvc, "h3=") || strings.Contains(altSvc, `h3="`) || strings.Contains(altSvc, "h3-")) {
 		t.h3Supported.Store(host, true)
 	}
 
 	return resp, nil
 }
 
-// CloseIdleConnections cleans up pooled idle connections.
+// CloseIdleConnections cleans up pooled idle connections across both TCP and HTTP/3 transports.
 func (t *HybridTransport) CloseIdleConnections() {
-	if transport, ok := t.tcpClient.Transport.(*http.Transport); ok {
-		transport.CloseIdleConnections()
+	if tr, ok := t.TCP.(interface{ CloseIdleConnections() }); ok {
+		tr.CloseIdleConnections()
 	}
-	_ = t.h3Transport.Close()
+	if t.H3 != nil {
+		t.H3.CloseIdleConnections()
+	}
 }
 
 var (
@@ -190,10 +164,7 @@ var (
 // HTTPClient returns the shared global HTTP client configured with HybridTransport (HTTP/3 + HTTP/2).
 func HTTPClient() *http.Client {
 	defaultClientOnce.Do(func() {
-		defaultClient = &http.Client{
-			Transport: NewHybridTransport(),
-			Timeout:   DefaultHTTPTimeout,
-		}
+		defaultClient = NewClient()
 	})
 	return defaultClient
 }
