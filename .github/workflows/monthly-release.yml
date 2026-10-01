@@ -2,7 +2,7 @@ name: Monthly Release
 
 on:
   schedule:
-    - cron: "0 0 1 * *" # Runs on the 1st of every month at 00:00 UTC
+    - cron: "0 1 1 * *" # Runs on the 1st of every month at 01:00 UTC
   workflow_dispatch: # Allows manual execution from GitHub Actions UI
     inputs:
       extra_build_info:

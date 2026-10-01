@@ -27,6 +27,8 @@ type Player struct {
 	src      AudioSource
 	state    PlayerState
 	onFinish func()
+	onStart  func()
+	started  bool
 }
 
 // NewPlayer returns an idle Player.
@@ -41,6 +43,7 @@ func (p *Player) Play(src AudioSource) {
 	old := p.src
 	p.src = src
 	p.state = PlayerPlaying
+	p.started = false
 	p.mu.Unlock()
 	if old != nil {
 		_ = old.Close()
@@ -71,6 +74,7 @@ func (p *Player) Stop() {
 	old := p.src
 	p.src = nil
 	p.state = PlayerIdle
+	p.started = false
 	p.mu.Unlock()
 	if old != nil {
 		_ = old.Close()
@@ -82,6 +86,26 @@ func (p *Player) State() PlayerState {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.state
+}
+
+// OnStart registers a callback fired when the active source yields its first frame
+// to the call send loop (indicating audio playback has actually started streaming).
+// If playback has already started for the current source, fn is invoked immediately.
+func (p *Player) OnStart(fn func()) {
+	p.mu.Lock()
+	p.onStart = fn
+	started := p.started && fn != nil
+	p.mu.Unlock()
+	if started {
+		fn()
+	}
+}
+
+// Started reports whether the active source has begun yielding audio frames.
+func (p *Player) Started() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.started
 }
 
 // OnFinish registers a callback fired when the active source is exhausted (the player
@@ -106,6 +130,16 @@ func (p *Player) nextFrame() []float32 {
 
 	frame, err := src.ReadFrame()
 	if err == nil {
+		p.mu.Lock()
+		var startFn func()
+		if !p.started {
+			p.started = true
+			startFn = p.onStart
+		}
+		p.mu.Unlock()
+		if startFn != nil {
+			startFn()
+		}
 		return frame
 	}
 	// Source exhausted (or errored): go idle, close it, and fire OnFinish once.
@@ -114,6 +148,7 @@ func (p *Player) nextFrame() []float32 {
 	if p.src == src { // still the active source (not replaced concurrently)
 		p.src = nil
 		p.state = PlayerIdle
+		p.started = false
 		finish = p.onFinish
 	}
 	p.mu.Unlock()

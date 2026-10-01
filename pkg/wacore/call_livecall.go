@@ -21,6 +21,8 @@ type Call struct {
 	player                    *Player
 	sink                      AudioSink
 	onReady                   func()
+	onMediaStart              func()
+	mediaStarted              bool
 	onEnd                     func(reason string)
 	onState                   func(CallPhase)
 	onPeerAccept              func()
@@ -261,6 +263,12 @@ func (c *Call) IsSendingVideo() bool {
 // IsReceivingVideo reports whether the peer currently owns an active inbound video flow.
 func (c *Call) IsReceivingVideo() bool {
 	return c.eng.callIsReceivingVideo(c.id)
+}
+
+// HasActiveVideoMedia reports whether the outbound video media pipeline is initialized
+// and ready to accept frames via SendVideo.
+func (c *Call) HasActiveVideoMedia() bool {
+	return c.eng.callHasActiveVideo(c.id)
 }
 
 // Answer accepts an inbound call (preaccept + accept) and brings media up. No-op error
@@ -683,6 +691,39 @@ func (c *Call) OnReady(fn func()) {
 	c.mu.Lock()
 	c.onReady = fn
 	c.mu.Unlock()
+}
+
+// OnMediaStart registers a callback fired when outbound media (RTP packets) begins
+// flowing to the relay. If media has already started, fn is invoked immediately.
+func (c *Call) OnMediaStart(fn func()) {
+	c.mu.Lock()
+	c.onMediaStart = fn
+	started := c.mediaStarted && fn != nil
+	c.mu.Unlock()
+	if started {
+		fn()
+	}
+}
+
+// MediaStarted reports whether outbound media has started flowing to the relay.
+func (c *Call) MediaStarted() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.mediaStarted
+}
+
+func (c *Call) markMediaStarted() {
+	c.mu.Lock()
+	if c.mediaStarted {
+		c.mu.Unlock()
+		return
+	}
+	c.mediaStarted = true
+	fn := c.onMediaStart
+	c.mu.Unlock()
+	if fn != nil {
+		fn()
+	}
 }
 
 // OnEnd registers a callback fired when the call ends, with a short reason string.

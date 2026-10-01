@@ -22,6 +22,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// ErrNoActiveVideo is returned when video frames are pushed before the video send pipeline is ready.
+var ErrNoActiveVideo = errors.New("wacaller: call has no active video media")
+
 // engine is the internal media + signaling engine behind Client/Call. It owns the
 // whatsmeow event wiring (offer / preaccept / accept / relaylatency / mute_v2 / ack /
 // terminate), the low-level <ack>/<call> node interception, the relay election and the
@@ -239,6 +242,12 @@ func (e *engine) callIsReceivingVideo(callID string) bool {
 	return e.calls[callID] != nil && e.calls[callID].remoteVideo
 }
 
+func (e *engine) callHasActiveVideo(callID string) bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.calls[callID] != nil && e.calls[callID].videoTx != nil
+}
+
 func (e *engine) transmitCallNode(ctx context.Context, node waBinary.Node) error {
 	if e.sendCallNode == nil {
 		return errors.New("wacaller: call signaling is unavailable")
@@ -260,14 +269,19 @@ func (e *engine) nextCallNodeID() string {
 func (e *engine) sendVideoFrame(callID string, au []byte, duration time.Duration) error {
 	e.mu.Lock()
 	var vs *videoSender
+	var call *Call
 	if m := e.calls[callID]; m != nil {
 		vs = m.videoTx
+		call = m.call
 	}
 	e.mu.Unlock()
 	if vs == nil {
-		return errors.New("wacaller: call has no active video media")
+		return ErrNoActiveVideo
 	}
 	vs.send(au, duration)
+	if call != nil {
+		call.markMediaStarted()
+	}
 	return nil
 }
 
@@ -370,7 +384,7 @@ func (e *engine) setVideoEnabled(callID string, enabled bool) error {
 		v := enabled
 		m.pendingVideoEnable = &v
 		e.mu.Unlock()
-		e.log.Info().Str("call_id", callID).Bool("enabled", enabled).Msg("video enable deferred until accept is sent")
+		e.log.Debug().Str("call_id", callID).Bool("enabled", enabled).Msg("video enable deferred until accept is sent")
 		return nil
 	}
 	m.localVideo = enabled
@@ -426,7 +440,7 @@ func (e *engine) setVideoOrientation(callID string, orientation int) error {
 		v := orientation
 		m.pendingVideoOrientation = &v
 		e.mu.Unlock()
-		e.log.Info().Str("call_id", callID).Int("orientation", orientation).Msg("video orientation deferred until accept is sent")
+		e.log.Debug().Str("call_id", callID).Int("orientation", orientation).Msg("video orientation deferred until accept is sent")
 		return nil
 	}
 	if !m.localVideo {
@@ -459,7 +473,7 @@ func (e *engine) placeCall(ctx context.Context, target string, opts CallOptions)
 	if err != nil {
 		return nil, err
 	}
-	e.log.Info().Str("peer_lid", peerLID.String()).Str("self_lid", self.String()).Msg("resolved peer LID")
+	e.log.Debug().Str("peer_lid", peerLID.String()).Str("self_lid", self.String()).Msg("resolved peer LID")
 
 	devices, err := cli.GetUserDevices(ctx, []types.JID{peerLID})
 	if err != nil {
@@ -592,7 +606,7 @@ func (e *engine) onOffer(ev *events.CallOffer) {
 		e.log.Warn().Err(err).Str("call_id", ev.CallID).Msg("decrypt callKey failed")
 		return
 	}
-	e.log.Info().Int("key_bytes", len(callKey)).Str("call_id", ev.CallID).Msg("decrypted inbound callKey")
+	e.log.Debug().Int("key_bytes", len(callKey)).Str("call_id", ev.CallID).Msg("decrypted inbound callKey")
 	e.diag.Emit("keying", map[string]any{
 		"call_id": ev.CallID, "direction": "in", "from": ev.From.String(),
 		"call_key_hex": hex.EncodeToString(callKey),
@@ -637,7 +651,7 @@ func (e *engine) onOffer(ev *events.CallOffer) {
 	e.applyVoipSettingsCodec(m, ev.Data, ev.CallID)
 	e.mu.Unlock()
 	if isVideo {
-		e.log.Info().Str("call_id", ev.CallID).Msg("inbound call advertises video")
+		e.log.Debug().Str("call_id", ev.CallID).Msg("inbound call advertises video")
 	}
 
 	// Preaccept eagerly: it is a preparation step, done independently of the later
@@ -693,7 +707,7 @@ func (e *engine) onGroupOffer(ev *events.CallOffer, update groupCallUpdate) {
 		e.log.Warn().Err(err).Str("call_id", ev.CallID).Msg("send group preaccept failed")
 		return
 	}
-	e.log.Info().Str("call_id", ev.CallID).Bool("video", isVideo).Msg("active group invite preaccepted")
+	e.log.Debug().Str("call_id", ev.CallID).Bool("video", isVideo).Msg("active group invite preaccepted")
 	if fn := e.c.incomingCallHandler(); fn != nil {
 		fn(call)
 	}
@@ -714,7 +728,7 @@ func (e *engine) sendPreaccept(callID string, to, creator types.JID, video bool)
 	if err := e.c.sendNode(context.Background(), pre); err != nil {
 		return fmt.Errorf("send preaccept: %w", err)
 	}
-	e.log.Info().Str("call_id", callID).Msg("preaccepted (preparation; awaiting Answer/Reject)")
+	e.log.Debug().Str("call_id", callID).Msg("preaccepted (preparation; awaiting Answer/Reject)")
 	return nil
 }
 
@@ -861,7 +875,7 @@ func (e *engine) onRelay(callID string, data *waBinary.Node) {
 			e.log.Warn().Err(err).Str("call_id", callID).Str("peer_lid", peerLID).
 				Msg("failed to rekey media to relay-elected peer")
 		} else {
-			e.log.Info().Str("call_id", callID).Str("peer_lid", peerLID).
+			e.log.Debug().Str("call_id", callID).Str("peer_lid", peerLID).
 				Msg("rekeyed media to relay-elected peer")
 		}
 	}
@@ -949,7 +963,7 @@ func (e *engine) onPreAccept(ev *events.CallPreAccept) {
 	if r := findRelay(ev.Data); r != nil {
 		e.onRelay(ev.CallID, ev.Data)
 	}
-	e.log.Info().
+	e.log.Debug().
 		Str("call_id", ev.CallID).
 		Str("from", ev.From.String()).
 		Str("platform", ev.RemotePlatform).
@@ -1007,7 +1021,7 @@ func (e *engine) onAccept(ev *events.CallAccept) {
 		if err := rekeyPeer(answeringPeer); err != nil {
 			e.log.Warn().Err(err).Str("call_id", ev.CallID).Str("peer_lid", answeringPeer).Msg("failed to rekey media to answering device")
 		} else {
-			e.log.Info().Str("call_id", ev.CallID).Str("peer_lid", answeringPeer).Msg("rekeyed media to answering device")
+			e.log.Debug().Str("call_id", ev.CallID).Str("peer_lid", answeringPeer).Msg("rekeyed media to answering device")
 		}
 	}
 	if m.call != nil && m.call.State() < CallPhaseConnecting {
@@ -1106,7 +1120,7 @@ func (e *engine) applyVoipSettingsCodec(m *engineCall, node *waBinary.Node, call
 		return
 	}
 	m.codec = selectAudioCodec(vs)
-	e.log.Info().
+	e.log.Debug().
 		Str("call_id", callID).
 		Str("codec", m.codec.String()).
 		Bool("use_mlow_codec_v1", vs.UseMlowCodecV1).
@@ -1170,7 +1184,7 @@ func (e *engine) onCallAck(ack *waBinary.Node) {
 	if callID == "" {
 		return
 	}
-	e.log.Info().Str("call_id", callID).Msg("relay allocation arrived in call ack")
+	e.log.Debug().Str("call_id", callID).Msg("relay allocation arrived in call ack")
 	e.mu.Lock()
 	if m := e.calls[callID]; m != nil {
 		e.applyVoipSettingsCodec(m, ack, callID)
@@ -1235,7 +1249,7 @@ func (e *engine) onCallRaw(callNode *waBinary.Node) bool {
 				Msg("mute_v2 observed; call not awaiting accept")
 			return false
 		}
-		e.log.Info().
+		e.log.Debug().
 			Str("call_id", callID).
 			Str("mute_state", muteState).
 			Bool("muted", muted).

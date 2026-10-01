@@ -447,7 +447,7 @@ func (r *participantReceiveRegistry) commitGroupUpdateLocked(prepared *preparedP
 		clear(r.pendingEpochs[transactionID])
 		delete(r.pendingEpochs, transactionID)
 	}
-	r.log.Info().
+	r.log.Debug().
 		Str("call_id", r.callID).
 		Uint32("transaction_id", prepared.transactionID).
 		Int("remote_participants", len(prepared.byPID)).
@@ -673,7 +673,7 @@ func (r *participantReceiveRegistry) installPreparedGroupRawEpochLocked(prepared
 		receiver.appDataPipe.installRecvKeysPreservingROC(keys)
 		receiver.srtcp.installKeys(prepared.receiveRTCPKeys[receiver])
 	}
-	r.log.Info().
+	r.log.Debug().
 		Str("call_id", r.callID).
 		Int("remote_participants", len(prepared.receiveKeys)).
 		Msg("installed shared group media key epoch")

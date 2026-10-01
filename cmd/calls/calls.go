@@ -760,18 +760,24 @@ func handleIncomingCall(call *whatsmeow.Call, waClient *whatsmeow.Client) {
 		startMedia()
 	})
 
+	// OnMediaStart fires when outbound RTP starts flowing
+	call.OnMediaStart(func() {
+		logger.Debug("voicemail: OnMediaStart fired, starting media", "call_id", call.ID())
+		startMedia()
+	})
+
 	// Let wacaller handle the full signaling — Answer waits for mute_v2 then sends accept
 	if err := call.Answer(); err != nil {
 		logger.Error("voicemail: call.Answer() failed", "call_id", call.ID(), "err", err)
 		return
 	}
 
-	// If OnReady hasn't fired within 10s, something is wrong with the media path.
+	// If OnReady/OnMediaStart hasn't fired within 10s, something is wrong with the media path.
 	// Start anyway — the audio will queue until the relay connects, or fail gracefully.
 	go func() {
 		time.Sleep(10 * time.Second)
 		if call.State() != whatsmeow.CallPhaseEnded {
-			logger.Debug("voicemail: OnReady timeout, starting media anyway", "call_id", call.ID())
+			logger.Debug("voicemail: media readiness timeout, starting media anyway", "call_id", call.ID())
 			startMedia()
 		}
 	}()
@@ -787,20 +793,50 @@ func startAudioMedia(call *whatsmeow.Call, audioPath string) {
 		return
 	}
 
-	call.Play(src)
-
 	duration, err := AudioDuration(audioPath)
 	if err != nil || duration == 0 {
 		duration = 30 * time.Second
 	}
 
-	go func() {
-		time.Sleep(duration)
-		if call.State() != whatsmeow.CallPhaseEnded {
-			logger.Debug("voicemail: audio duration completed, hanging up", "call_id", call.ID())
-			_ = call.Hangup()
+	player := call.Play(src)
+
+	var timerOnce sync.Once
+	var timer *time.Timer
+	var timerMu sync.Mutex
+
+	stopTimer := func() {
+		timerMu.Lock()
+		defer timerMu.Unlock()
+		if timer != nil {
+			timer.Stop()
 		}
-	}()
+	}
+
+	startDurationTimer := func() {
+		timerOnce.Do(func() {
+			logger.Debug("voicemail: audio media started playing, starting dynamic duration countdown", "call_id", call.ID(), "duration", duration)
+			timerMu.Lock()
+			timer = time.AfterFunc(duration+1*time.Second, func() {
+				hangupIfActive(call, "audio duration completed")
+			})
+			timerMu.Unlock()
+		})
+	}
+
+	player.OnStart(startDurationTimer)
+	call.OnMediaStart(startDurationTimer)
+
+	player.OnFinish(func() {
+		logger.Debug("voicemail: audio playback finished, hanging up", "call_id", call.ID())
+		time.AfterFunc(500*time.Millisecond, func() {
+			stopTimer()
+			hangupIfActive(call, "audio playback finished")
+		})
+	})
+
+	time.AfterFunc(duration+30*time.Second, func() {
+		hangupIfActive(call, "voicemail safety timeout")
+	})
 }
 
 func startVideoMedia(call *whatsmeow.Call, videoPath string) {
@@ -821,6 +857,13 @@ func startVideoMedia(call *whatsmeow.Call, videoPath string) {
 	if audioFile == "" {
 		audioFile = videoPath
 	}
+
+	if h264Path == "" {
+		logger.Warn("voicemail: no h264 track, audio-only for video call", "call_id", call.ID())
+		startAudioMedia(call, audioFile)
+		return
+	}
+
 	src, err := openAudioSource(audioFile)
 	if err != nil {
 		logger.Error("voicemail: failed to load audio", "path", audioFile, "err", err)
@@ -828,11 +871,6 @@ func startVideoMedia(call *whatsmeow.Call, videoPath string) {
 		return
 	}
 	call.Play(src)
-
-	if h264Path == "" {
-		logger.Warn("voicemail: no h264 track, audio-only for video call", "call_id", call.ID())
-		return
-	}
 
 	h264Data, err := os.ReadFile(h264Path)
 	if err != nil || len(h264Data) == 0 {
@@ -863,7 +901,10 @@ func runVideoFrameLoop(call *whatsmeow.Call, frames [][]byte, duration time.Dura
 	const frameDur = 66 * time.Millisecond
 	ticker := time.NewTicker(frameDur)
 	defer ticker.Stop()
-	timer := time.NewTimer(duration)
+
+	// Initial safety timeout while waiting for video media pipeline to become active.
+	const setupTimeout = 30 * time.Second
+	timer := time.NewTimer(setupTimeout)
 	defer timer.Stop()
 
 	idrIndices := idrFrameIndices(frames, requestKeyframe)
@@ -891,11 +932,21 @@ func runVideoFrameLoop(call *whatsmeow.Call, frames [][]byte, duration time.Dura
 				if !strings.Contains(err.Error(), "has no active video media") {
 					logHandlerErr("videocall", err)
 				}
-			} else {
-				sent++
-				if sent == 1 || sent%30 == 0 {
-					logger.Debug("videocall: sent frame", "sent", sent, "access_unit", frameIdx, "bytes", len(frame))
+				// Video media is not ready yet: do not advance frame index or discard frames.
+				continue
+			}
+			sent++
+			if sent == 1 {
+				logger.Debug("videocall: first video frame sent, starting dynamic media duration countdown", "duration", duration)
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
 				}
+				timer.Reset(duration)
+			} else if sent%30 == 0 {
+				logger.Debug("videocall: sent frame", "sent", sent, "access_unit", frameIdx, "bytes", len(frame))
 			}
 			frameIdx++
 			if frameIdx >= len(frames) {
@@ -1199,21 +1250,52 @@ func placeCallWithAudio(ctx *dispatch.Context, target, audioPath string) error {
 				}
 				return
 			}
-			call.Play(src)
+			player := call.Play(src)
 
-			go func() {
-				time.Sleep(duration + 1*time.Second)
-				if call.State() != whatsmeow.CallPhaseEnded {
-					if hErr := call.Hangup(); hErr != nil {
-						logHandlerErr("call", hErr)
-					}
+			var timerOnce sync.Once
+			var timer *time.Timer
+			var timerMu sync.Mutex
+
+			stopTimer := func() {
+				timerMu.Lock()
+				defer timerMu.Unlock()
+				if timer != nil {
+					timer.Stop()
 				}
-			}()
+			}
+
+			startTimer := func() {
+				timerOnce.Do(func() {
+					logger.Debug("callaudio: media playback started, starting dynamic duration countdown", "duration", duration)
+					timerMu.Lock()
+					timer = time.AfterFunc(duration+1*time.Second, func() {
+						hangupIfActive(call, "audio duration completed")
+					})
+					timerMu.Unlock()
+				})
+			}
+
+			player.OnStart(startTimer)
+			call.OnMediaStart(startTimer)
+
+			player.OnFinish(func() {
+				logger.Debug("callaudio: audio player reached EOF, hanging up")
+				time.AfterFunc(500*time.Millisecond, func() {
+					stopTimer()
+					hangupIfActive(call, "audio playback finished")
+				})
+			})
+
+			// Safety fallback timeout
+			time.AfterFunc(duration+30*time.Second, func() {
+				hangupIfActive(call, "callaudio safety timeout")
+			})
 		})
 	}
 
 	call.OnPeerAccept(startMedia)
 	call.OnReady(startMedia)
+	call.OnMediaStart(startMedia)
 
 	call.OnEnd(func(reason string) {
 		if err := ctx.ReplyWithMentions(whatsrook.Sprintf("Call with %s ended — %s.", userTag, friendlyCallEndReason(reason)), []types.JID{mentionJID}); err != nil {
@@ -1297,9 +1379,43 @@ func placeVideoCallWithMedia(ctx *dispatch.Context, target, videoPath string) er
 
 			if src, err := openAudioSource(audioFile); err == nil {
 				logger.Debug("videocall: audio source opened, starting playback", "audio_file", audioFile)
-				call.Play(src)
+				player := call.Play(src)
+				if h264Path == "" {
+					var timerOnce sync.Once
+					var timer *time.Timer
+					var timerMu sync.Mutex
+					startTimer := func() {
+						timerOnce.Do(func() {
+							timerMu.Lock()
+							timer = time.AfterFunc(duration+1*time.Second, func() {
+								hangupIfActive(call, "audio duration completed")
+							})
+							timerMu.Unlock()
+						})
+					}
+					player.OnStart(startTimer)
+					call.OnMediaStart(startTimer)
+					player.OnFinish(func() {
+						time.AfterFunc(500*time.Millisecond, func() {
+							timerMu.Lock()
+							if timer != nil {
+								timer.Stop()
+							}
+							timerMu.Unlock()
+							hangupIfActive(call, "audio playback finished")
+						})
+					})
+					time.AfterFunc(duration+30*time.Second, func() {
+						hangupIfActive(call, "videocall safety timeout")
+					})
+					return
+				}
 			} else {
 				logger.Debug("videocall: could not open audio source", "audio_file", audioFile, "err", err)
+				if h264Path == "" {
+					_ = call.Hangup()
+					return
+				}
 			}
 
 			if h264Path == "" {
@@ -1337,6 +1453,11 @@ func placeVideoCallWithMedia(ctx *dispatch.Context, target, videoPath string) er
 
 	call.OnReady(func() {
 		logger.Debug("videocall: media ready (inbound RTP flowing)")
+		startMedia()
+	})
+
+	call.OnMediaStart(func() {
+		logger.Debug("videocall: outbound media flowing")
 		startMedia()
 	})
 

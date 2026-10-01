@@ -98,7 +98,7 @@ func (e *engine) maybeStartMedia(callID string) {
 	if call != nil {
 		call.setPhase(CallPhaseConnecting)
 	}
-	e.log.Info().Str("call_id", callID).Msg("starting media")
+	e.log.Debug().Str("call_id", callID).Msg("starting media")
 	go func() {
 		defer clear(callKey)
 		if err := e.runMedia(mctx, callID, call, callKey, selfLID, peerLID, rd, inbound); err != nil {
@@ -157,7 +157,7 @@ func (e *engine) connectAndAllocateAll(ctx context.Context, rd *relayData, strea
 	if len(chans) == 0 {
 		return nil, fmt.Errorf("no relay reachable (%d offered)", len(targets))
 	}
-	e.log.Info().Int("connected", len(chans)).Int("offered", len(targets)).Strs("relays", names).Msg("relay fanout established")
+	e.log.Debug().Int("connected", len(chans)).Int("offered", len(targets)).Strs("relays", names).Msg("relay fanout established")
 	return newRelayFanout(chans, allocs, names), nil
 }
 
@@ -172,7 +172,7 @@ func (e *engine) connectOneRelay(ctx context.Context, rd *relayData, ep *relayEn
 		return nil, nil, fmt.Errorf("relay has no usable endpoint")
 	}
 	addr := &net.UDPAddr{IP: net.ParseIP(ep.addresses[0].ipv4), Port: int(ep.addresses[0].port)}
-	log.Info().Str("relay_name", ep.relayName).Str("addr", addr.String()).Msg("connecting media transport to relay")
+	log.Debug().Str("relay_name", ep.relayName).Str("addr", addr.String()).Msg("connecting media transport to relay")
 	e.diag.Emit("relay", map[string]any{
 		"event": "endpoint", "relay_name": ep.relayName,
 		"ipv4": ep.addresses[0].ipv4, "port": ep.addresses[0].port, "token_id": ep.tokenID,
@@ -199,7 +199,7 @@ func (e *engine) connectOneRelay(ctx context.Context, rd *relayData, ep *relayEn
 	case <-ctx.Done():
 		return nil, nil, ctx.Err()
 	}
-	log.Info().Str("relay_name", ep.relayName).Msg("relay DataChannel open")
+	log.Debug().Str("relay_name", ep.relayName).Msg("relay DataChannel open")
 
 	if int(ep.tokenID) >= len(rd.relayTokens) || rd.relayTokens[ep.tokenID] == nil {
 		ch.Close()
@@ -226,7 +226,7 @@ func (e *engine) connectOneRelay(ctx context.Context, rd *relayData, ep *relayEn
 		ch.Close()
 		return nil, nil, fmt.Errorf("allocate send: %w", err)
 	}
-	log.Info().Int("bytes", len(allocate)).Msg("sent STUN allocate")
+	log.Debug().Int("bytes", len(allocate)).Msg("sent STUN allocate")
 	e.diag.Emit("stun", map[string]any{
 		"event": "allocate_sent", "bytes": len(allocate),
 		"tx_id_hex":    hex.EncodeToString(tx[:]),
@@ -306,7 +306,7 @@ func (e *engine) runMedia(ctx context.Context, callID string, call *Call, callKe
 		})
 	}
 
-	log.Info().
+	log.Debug().
 		Str("self_lid", selfLID).
 		Str("peer_lid", peerLID).
 		Str("ssrc", fmt.Sprintf("0x%08x", ssrc)).
@@ -479,7 +479,7 @@ func (e *engine) runMedia(ctx context.Context, callID string, call *Call, callKe
 			}
 			if !playoutStarted {
 				playoutStarted = true
-				log.Info().
+				log.Debug().
 					Int("prefill_ms", participantAudioMixerPrefillSamples*1000/SampleRate).
 					Int("chunk_ms", participantAudioMixChunkSamples*1000/SampleRate).
 					Msg("started participant-mixed inbound audio playout")
@@ -662,8 +662,11 @@ func (e *engine) runMedia(ctx context.Context, callID string, call *Call, callKe
 				return
 			}
 			if txCount++; txCount == 1 {
-				log.Info().Int("bytes", len(packet)).Msg("first RTP sent to relay, outbound media flowing")
+				log.Debug().Int("bytes", len(packet)).Msg("first RTP sent to relay, outbound media flowing")
 				e.diag.Emit("meta", map[string]any{"event": "first_rtp_sent", "call_id": callID, "bytes": len(packet)})
+				if call != nil {
+					call.markMediaStarted()
+				}
 			}
 		}
 	}()
@@ -861,7 +864,7 @@ func (e *engine) runMedia(ctx context.Context, callID string, call *Call, callKe
 				}
 				sent++
 				if sent == 1 {
-					log.Info().Msg("started periodic SRTCP sender reports")
+					log.Debug().Msg("started periodic SRTCP sender reports")
 				}
 				e.diag.Emit("rtcp", map[string]any{
 					"event": "sender_reports", "tick": sent,
@@ -933,7 +936,7 @@ func (e *engine) runMedia(ctx context.Context, callID string, call *Call, callKe
 				continue
 			}
 			if rtcpIn++; rtcpIn == 1 {
-				log.Info().Uint32("ssrc", senderSsrc).Uint32("index", index).Msg("first authenticated peer SRTCP received")
+				log.Debug().Uint32("ssrc", senderSsrc).Uint32("index", index).Msg("first authenticated peer SRTCP received")
 			}
 			keyframe := rtp.RtcpRequestsKeyframe(plain, videoSelfSsrc)
 			if keyframe {
@@ -974,7 +977,7 @@ func (e *engine) runMedia(ctx context.Context, callID string, call *Call, callKe
 			continue
 		}
 		if rtpSeen++; rtpSeen == 1 {
-			log.Info().Int("bytes", n).Msg("first RTP-classified packet from relay, relay is bridging the peer's media")
+			log.Debug().Int("bytes", n).Msg("first RTP-classified packet from relay, relay is bridging the peer's media")
 		}
 		vh, vok := rtp.ParseRtpHeader(pkt)
 		if vok {
@@ -1030,7 +1033,7 @@ func (e *engine) runMedia(ctx context.Context, callID string, call *Call, callKe
 			})
 			if handled {
 				if appDataIn++; appDataIn == 1 {
-					log.Info().Uint32("ssrc", media.Header.Ssrc).Msg("first RTC call reaction received")
+					log.Debug().Uint32("ssrc", media.Header.Ssrc).Msg("first RTC call reaction received")
 				}
 			}
 			continue
@@ -1129,7 +1132,7 @@ func (e *engine) runMedia(ctx context.Context, callID string, call *Call, callKe
 						log.Warn().Err(err).Uint32("ssrc", vh.Ssrc).Int("bytes", len(frame)).Msg("failed to write WhatsApp video frame to sink")
 					} else {
 						if videoFrameIn == 0 {
-							log.Info().Uint32("ssrc", vh.Ssrc).Int("bytes", len(frame)).Msg("first WhatsApp video frame written to sink")
+							log.Debug().Uint32("ssrc", vh.Ssrc).Int("bytes", len(frame)).Msg("first WhatsApp video frame written to sink")
 						}
 						videoFrameIn++
 					}
@@ -1141,7 +1144,7 @@ func (e *engine) runMedia(ctx context.Context, callID string, call *Call, callKe
 				}
 			}
 			if vidIn++; vidIn == 1 {
-				log.Info().Uint32("ssrc", vh.Ssrc).Msg("first video RTP demuxed from relay (NOT VALIDATED)")
+				log.Debug().Uint32("ssrc", vh.Ssrc).Msg("first video RTP demuxed from relay (NOT VALIDATED)")
 				e.diag.Emit("meta", map[string]any{"event": "first_video_rtp_in", "call_id": callID, "ssrc": vh.Ssrc})
 			}
 			continue
@@ -1192,14 +1195,14 @@ func (e *engine) runMedia(ctx context.Context, callID string, call *Call, callKe
 				log.Warn().Err(playoutErr).Msg("failed to write timestamp-aligned WhatsApp audio")
 			}
 			if playoutStarted {
-				log.Info().Int("prefill_ms", audioPlayoutPrefillSamples*1000/SampleRate).Msg("started timestamp-aligned inbound audio playout")
+				log.Debug().Int("prefill_ms", audioPlayoutPrefillSamples*1000/SampleRate).Msg("started timestamp-aligned inbound audio playout")
 			}
 		}
 		if playoutLocked {
 			audioPlayoutMu.Unlock()
 		}
 		if rtpIn++; rtpIn == 1 {
-			log.Info().Msg("first RTP decoded from relay, inbound audio flowing")
+			log.Debug().Msg("first RTP decoded from relay, inbound audio flowing")
 			e.diag.Emit("meta", map[string]any{"event": "first_rtp_in", "call_id": callID})
 			if call != nil {
 				call.setPhase(CallPhaseActive)
@@ -1631,7 +1634,7 @@ func (vs *videoSender) send(au []byte, duration time.Duration) {
 	}
 	if sent > 0 && !vs.logged {
 		vs.logged = true
-		vs.log.Info().
+		vs.log.Debug().
 			Int("packets", sent).
 			Uint32("ssrc", vs.ssrc).
 			Msg("first video RTP sent to relay, outbound video flowing")
