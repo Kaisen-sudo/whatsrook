@@ -1,16 +1,10 @@
 ![whatsrook](https://pub-687f7ee583cf4f339cab34d2b3a3871d.r2.dev/logo.svg)
 
-WhatsRook is an automated WhatsApp client with built-in utilities for managing chats, scheduling, and automation.
-
-## Deployments
-
-<div style="margin: 20px 0;">
-  <a href="https://thruqe.github.io/whatsapp-go/" target="_blank" rel="noopener noreferrer">
-    <img src="https://pub-687f7ee583cf4f339cab34d2b3a3871d.r2.dev/button.svg" alt="Get Session ID" />
-  </a>
-</div>
+whatsrook is an automation bot that integrates seamlessly with your whatsapp linked devices, executing actions automatically under your direct command.
 
 ## Usage
+
+[Session ID](https://thruqe.github.io/whatsapp-go/), this is allows you customize your enivorment into a cryptographic key, you can pass it as a parameter to the cli or in the `.env` file as `SESSION_ID` field.
 
 Configuration is managed through environment variables; see the [sample environment file](./.env.example) for the supported settings.
 
