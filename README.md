@@ -39,21 +39,4 @@ whatsrook wouldn't have been possible without these open source, community and p
 
 This project is open source, see the [LICENSE](./LICENSE) file for full details.
 
-## Support This Project
-
-If you find this project useful, consider sending a tip.
-
-<p align="left">
-  <a href="https://tronscan.org/#/address/TFDtgoQ5tCNUUSb4fjBgqXSR5vzUBjGFUw"><img src="https://cdn-icons-png.flaticon.com/512/12114/12114250.png" width="32" height="32" alt="Donate TRX" /></a>
-  <a href="https://www.blockchain.com/explorer/addresses/btc/bc1qzt5a6p9ggjgececau4vpqrx7ejxkdqvshmhdg6"><img src="https://cdn-icons-png.flaticon.com/512/5968/5968260.png" width="32" height="32" alt="Donate BTC" /></a>
-  <a href="https://etherscan.io/address/0xfA1617fC3aeA4B2BC6Fb3928aA2cAE2fB97ba0ED"><img src="https://cdn-icons-png.flaticon.com/128/15301/15301597.png" width="32" height="32" alt="Donate ETH" /></a>
-</p>
-
-<details>
-<summary>Wallet addresses</summary>
-
-- **TRX:** `TFDtgoQ5tCNUUSb4fjBgqXSR5vzUBjGFUw`
-- **BTC:** `bc1qzt5a6p9ggjgececau4vpqrx7ejxkdqvshmhdg6`
-- **ETH:** `0xfA1617fC3aeA4B2BC6Fb3928aA2cAE2fB97ba0ED`
-
-</details>
+<a href="https://etherscan.io/address/0xfA1617fC3aeA4B2BC6Fb3928aA2cAE2fB97ba0ED"><img src="https://cdn-icons-png.flaticon.com/128/15301/15301597.png" width="24" height="24" alt="Donate ETH" /></a> `0xfA1617fC3aeA4B2BC6Fb3928aA2cAE2fB97ba0ED`
