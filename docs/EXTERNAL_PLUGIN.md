@@ -38,26 +38,26 @@ When a command is triggered, WhatsRook passes a JSON request line on `stdin`:
 
 ```json
 {
-	"command": "calc",
-	"args": ["12", "*", "12"],
-	"raw_args": "12 * 12",
-	"chat": "1234567890@s.whatsapp.net",
-	"sender": "9876543210@s.whatsapp.net",
-	"prefix": ".",
-	"bot_name": "WhatsRook",
-	"push_name": "Alice",
-	"is_group": true,
-	"is_sudo": true,
-	"is_owner": true,
-	"is_admin": true,
-	"live_session": false,
-	"is_cancel_request": false,
-	"quoted_message": {
-		"id": "3EB0ABC12345",
-		"sender": "1122334455@s.whatsapp.net",
-		"text": "Hello world"
-	},
-	"mentioned_jids": ["1122334455@s.whatsapp.net"]
+  "command": "calc",
+  "args": ["12", "*", "12"],
+  "raw_args": "12 * 12",
+  "chat": "1234567890@s.whatsapp.net",
+  "sender": "9876543210@s.whatsapp.net",
+  "prefix": ".",
+  "bot_name": "WhatsRook",
+  "push_name": "Alice",
+  "is_group": true,
+  "is_sudo": true,
+  "is_owner": true,
+  "is_admin": true,
+  "live_session": false,
+  "is_cancel_request": false,
+  "quoted_message": {
+    "id": "3EB0ABC12345",
+    "sender": "1122334455@s.whatsapp.net",
+    "text": "Hello world"
+  },
+  "mentioned_jids": ["1122334455@s.whatsapp.net"]
 }
 ```
 
@@ -120,9 +120,9 @@ WhatsRook responds on `stdin` with an Acknowledgment frame:
 
 ```json
 {
-	"action": "send_image",
-	"data": "https://example.com/chart.png",
-	"caption": "Market Chart"
+  "action": "send_image",
+  "data": "https://example.com/chart.png",
+  "caption": "Market Chart"
 }
 ```
 
@@ -138,10 +138,10 @@ _(Supports HTTP/HTTPS URLs or base64 data strings)._
 
 ```json
 {
-	"action": "send_video",
-	"data": "https://example.com/animation.mp4",
-	"caption": "Check this out",
-	"gif_playback": true
+  "action": "send_video",
+  "data": "https://example.com/animation.mp4",
+  "caption": "Check this out",
+  "gif_playback": true
 }
 ```
 
@@ -149,10 +149,10 @@ _(Supports HTTP/HTTPS URLs or base64 data strings)._
 
 ```json
 {
-	"action": "send_document",
-	"data": "https://example.com/report.pdf",
-	"filename": "report.pdf",
-	"caption": "Annual Report"
+  "action": "send_document",
+  "data": "https://example.com/report.pdf",
+  "filename": "report.pdf",
+  "caption": "Annual Report"
 }
 ```
 
@@ -166,10 +166,10 @@ _(Supports HTTP/HTTPS URLs or base64 data strings)._
 
 ```json
 {
-	"action": "poll",
-	"question": "What is your favorite crypto?",
-	"options": ["Bitcoin", "Ethereum", "Solana"],
-	"selectable": 1
+  "action": "poll",
+  "question": "What is your favorite crypto?",
+  "options": ["Bitcoin", "Ethereum", "Solana"],
+  "selectable": 1
 }
 ```
 
@@ -237,4 +237,3 @@ WhatsRook executes external plugins as standalone native processes. External plu
 - **macOS Apple Silicon**: `aarch64-apple-darwin`
 - **macOS Intel**: `x86_64-apple-darwin`
 - **Windows x64**: `x86_64-pc-windows-msvc`
-
