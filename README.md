@@ -2,6 +2,12 @@
 
 whatsrook is an automation bot that integrates seamlessly with your whatsapp linked devices, executing actions automatically under your direct command.
 
+> [!Caution]
+> Disclaimer!!!
+> This software is strictly for educational and research purposes.
+> It is not affiliated with, authorized, maintained, sponsored, or endorsed by WhatsApp LLC, Meta Platforms, Inc., or any of its affiliates.
+> Use at your own risk. The authors accept no liability for account suspensions or any damages resulting from the use of this code.
+
 ## Usage
 
 [Session ID](https://thruqe.github.io/whatsapp-go/), this is allows you customize your enivorment into a cryptographic key, you can pass it as a parameter to the cli or in the `.env` file as `SESSION_ID` field.
@@ -38,5 +44,9 @@ whatsrook wouldn't have been possible without these open source, community and p
 ## Licensing
 
 This project is open source, see the [LICENSE](./LICENSE) file for full details.
+
+## Support this project
+
+If you found this project to be useful in anyway, please consider sending a tip.
 
 <a href="https://etherscan.io/address/0xfA1617fC3aeA4B2BC6Fb3928aA2cAE2fB97ba0ED"><img src="https://cdn-icons-png.flaticon.com/128/15301/15301597.png" width="24" height="24" alt="Donate ETH" /></a> `0xfA1617fC3aeA4B2BC6Fb3928aA2cAE2fB97ba0ED`
