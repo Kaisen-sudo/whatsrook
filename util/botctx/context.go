@@ -154,10 +154,7 @@ func (c *PluginContext) ReplyContextInfo() *waE2E.ContextInfo {
 }
 
 func (c *PluginContext) formatTextResponse(text string) string {
-	text = strings.ReplaceAll(text, "*", "")
-	text = message.RemoveEmojis(text)
-	text = strings.ReplaceAll(text, "```", "")
-	return text
+	return message.FormatTextResponseRaw(text)
 }
 
 func (c *PluginContext) replyContextInfo() *waE2E.ContextInfo {

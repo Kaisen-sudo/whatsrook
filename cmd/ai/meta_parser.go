@@ -2,6 +2,7 @@
 package ai
 
 import (
+	"regexp"
 	"strings"
 
 	"go.mau.fi/whatsmeow/types"
@@ -328,5 +329,103 @@ func CleanAiResponseText(text string) string {
 		cleaned = strings.ReplaceAll(cleaned, tag, "")
 	}
 
+	cleaned = StripMarkdown(cleaned)
+
 	return strings.TrimSpace(cleaned)
+}
+
+var (
+	reCodeBlock        = regexp.MustCompile("(?s)```[a-zA-Z0-9_-]*\\n?(.*?)\\n?```")
+	reUnclosedCodeOpen = regexp.MustCompile("```[a-zA-Z0-9_-]*\\n?")
+	reInlineCode       = regexp.MustCompile("`([^`\n]+)`")
+	reHeader           = regexp.MustCompile(`(?m)^[ \t]*#{1,6}[ \t]+`)
+	reBlockquote       = regexp.MustCompile(`(?m)^[ \t]*>[ \t]?`)
+	reHorizontalRule   = regexp.MustCompile(`(?m)^[ \t]*[-*_]{3,}[ \t]*$`)
+	reBoldItalic1      = regexp.MustCompile(`\*\*\*([^*]+)\*\*\*`)
+	reBoldItalic2      = regexp.MustCompile(`___([^_]+)___`)
+	reBold1            = regexp.MustCompile(`\*\*([^*]+)\*\*`)
+	reBold2            = regexp.MustCompile(`__([^_]+)__`)
+	reItalic1          = regexp.MustCompile(`\*([^*\n]+)\*`)
+	reItalic2          = regexp.MustCompile(`_([^_\n]+)_`)
+	reStrike1          = regexp.MustCompile(`~~([^~]+)~~`)
+	reStrike2          = regexp.MustCompile(`~([^~\n]+)~`)
+	reBullet           = regexp.MustCompile(`(?m)^[ \t]*[\*\+][ \t]+`)
+	reMdImage          = regexp.MustCompile(`!\[([^\]]*)\]\([^)]+\)`)
+	reMdLink           = regexp.MustCompile(`\[([^\]]+)\]\(([^)]*)\)`)
+	reHTMLTags         = regexp.MustCompile(`</?[a-zA-Z][a-zA-Z0-9]*[^>]*>`)
+	reExtraNewlines    = regexp.MustCompile(`\n{3,}`)
+)
+
+// StripMarkdown strips all markdown formatting from the given text, returning plain text.
+func StripMarkdown(text string) string {
+	if text == "" {
+		return ""
+	}
+
+	// 1. Strip images: ![alt](url) -> alt
+	text = reMdImage.ReplaceAllString(text, "$1")
+
+	// 2. Format links: [text](url) -> text (url) or text
+	text = reMdLink.ReplaceAllStringFunc(text, func(m string) string {
+		sub := reMdLink.FindStringSubmatch(m)
+		if len(sub) < 3 {
+			return m
+		}
+		title := strings.TrimSpace(sub[1])
+		url := strings.TrimSpace(sub[2])
+		if url == "" || strings.EqualFold(url, "link unavailable") || strings.EqualFold(url, "(link unavailable)") {
+			return title
+		}
+		if title == "" || title == url || strings.HasPrefix(url, title) {
+			return url
+		}
+		return title + " (" + url + ")"
+	})
+	text = strings.ReplaceAll(text, "(link unavailable)", "")
+	text = strings.ReplaceAll(text, "link unavailable", "")
+
+	// 3. Code blocks: extract content, strip fence
+	text = reCodeBlock.ReplaceAllString(text, "$1")
+	text = reUnclosedCodeOpen.ReplaceAllString(text, "")
+	text = strings.ReplaceAll(text, "```", "")
+
+	// 4. Inline code
+	text = reInlineCode.ReplaceAllString(text, "$1")
+	text = strings.ReplaceAll(text, "`", "")
+
+	// 5. Headers: # Title -> Title
+	text = reHeader.ReplaceAllString(text, "")
+
+	// 6. Blockquotes: > quote -> quote
+	text = reBlockquote.ReplaceAllString(text, "")
+
+	// 7. Horizontal rules: --- -> ""
+	text = reHorizontalRule.ReplaceAllString(text, "")
+
+	// 8. Convert asterisk/plus bullets to standard hyphen bullets before stripping *
+	text = reBullet.ReplaceAllString(text, "- ")
+
+	// 9. Bold, Italic, Strikethrough
+	text = reBoldItalic1.ReplaceAllString(text, "$1")
+	text = reBoldItalic2.ReplaceAllString(text, "$1")
+	text = reBold1.ReplaceAllString(text, "$1")
+	text = reBold2.ReplaceAllString(text, "$1")
+	text = reItalic1.ReplaceAllString(text, "$1")
+	text = reItalic2.ReplaceAllString(text, "$1")
+	text = reStrike1.ReplaceAllString(text, "$1")
+	text = reStrike2.ReplaceAllString(text, "$1")
+
+	// 10. Stray asterisks or tildes
+	text = strings.ReplaceAll(text, "**", "")
+	text = strings.ReplaceAll(text, "~~", "")
+	text = strings.ReplaceAll(text, "*", "")
+	text = strings.ReplaceAll(text, "~", "")
+
+	// 11. HTML tags
+	text = reHTMLTags.ReplaceAllString(text, "")
+
+	// 12. Normalize extra newlines
+	text = reExtraNewlines.ReplaceAllString(text, "\n\n")
+
+	return strings.TrimSpace(text)
 }

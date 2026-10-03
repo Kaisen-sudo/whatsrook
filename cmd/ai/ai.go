@@ -541,7 +541,7 @@ func handleAI(ctx *dispatch.Context) error {
 	var placeholderMsgID types.MessageID
 	var lastEditedText string
 	onUpdate := func(text string) error {
-		trimmed := strings.TrimSpace(text)
+		trimmed := strings.TrimSpace(CleanAiResponseText(text))
 		if trimmed == "" || IsDummyPlaceholderText(trimmed) {
 			return nil
 		}
@@ -602,7 +602,7 @@ func handleAI(ctx *dispatch.Context) error {
 		return err
 	}
 
-	reply := res.Text
+	reply := CleanAiResponseText(res.Text)
 	mediaBytes := res.GeneratedMedia
 	if len(mediaBytes) == 0 {
 		mediaBytes = res.GeneratedImg
@@ -623,6 +623,7 @@ func handleAI(ctx *dispatch.Context) error {
 		if caption == "" {
 			caption = reply
 		}
+		caption = CleanAiResponseText(caption)
 
 		if placeholderMsgID != "" {
 			_, _ = ctx.Delete(placeholderMsgID)

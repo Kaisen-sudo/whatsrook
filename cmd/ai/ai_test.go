@@ -718,6 +718,84 @@ The answer is 42.`,
 	}
 }
 
+func TestStripMarkdown(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "Bold text with asterisks and underscores",
+			input:    "This is **bold** and __also bold__ text.",
+			expected: "This is bold and also bold text.",
+		},
+		{
+			name:     "Italic text",
+			input:    "This is *italic* and _italic_ text.",
+			expected: "This is italic and italic text.",
+		},
+		{
+			name:     "Bold and italic combined",
+			input:    "This is ***bold and italic*** and ___another one___.",
+			expected: "This is bold and italic and another one.",
+		},
+		{
+			name:     "Headers",
+			input:    "# Header 1\n## Header 2\n### Header 3\nContent under headers",
+			expected: "Header 1\nHeader 2\nHeader 3\nContent under headers",
+		},
+		{
+			name:     "Code block with language fence",
+			input:    "Here is code:\n```go\nfunc main() {\n\tprintln(\"hello\")\n}\n```\nDone.",
+			expected: "Here is code:\nfunc main() {\n\tprintln(\"hello\")\n}\nDone.",
+		},
+		{
+			name:     "Inline code",
+			input:    "Run the `git status` command to see changes.",
+			expected: "Run the git status command to see changes.",
+		},
+		{
+			name:     "Blockquote",
+			input:    "> This is a quoted message.\n> Second line.",
+			expected: "This is a quoted message.\nSecond line.",
+		},
+		{
+			name:     "Strikethrough",
+			input:    "This is ~~crossed out~~ text.",
+			expected: "This is crossed out text.",
+		},
+		{
+			name:     "Markdown links",
+			input:    "Check out [Google](https://google.com) and [Wikipedia](https://wikipedia.org).",
+			expected: "Check out Google (https://google.com) and Wikipedia (https://wikipedia.org).",
+		},
+		{
+			name:     "Link with link unavailable",
+			input:    "Refer to [Documentation](link unavailable) for details.",
+			expected: "Refer to Documentation for details.",
+		},
+		{
+			name:     "Bullet list conversion",
+			input:    "* First item\n* Second item\n+ Third item",
+			expected: "- First item\n- Second item\n- Third item",
+		},
+		{
+			name:     "RUN_COMMAND preservation",
+			input:    "**RUN_COMMAND: !ping**",
+			expected: "RUN_COMMAND: !ping",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := StripMarkdown(tc.input)
+			if got != tc.expected {
+				t.Errorf("StripMarkdown(%q) = %q, want %q", tc.input, got, tc.expected)
+			}
+		})
+	}
+}
+
 func TestExtractMetaAiText_StrippingScaffolding(t *testing.T) {
 	rawWithSystemPrompt := `[SYSTEM CONTEXT:
 You are WhatsRook
