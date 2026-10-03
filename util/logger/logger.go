@@ -56,7 +56,22 @@ var (
 	isInit     atomic.Bool
 	nextHookID atomic.Uint32
 	hooks      sync.Map // uint32 -> LogHook
+	isVerbose  atomic.Bool
 )
+
+type verboseLevelEnabler struct {
+	level zap.AtomicLevel
+}
+
+func (e verboseLevelEnabler) Enabled(lvl zapcore.Level) bool {
+	if !e.level.Enabled(lvl) {
+		return false
+	}
+	if !isVerbose.Load() && lvl == zapcore.WarnLevel {
+		return false
+	}
+	return true
+}
 
 func init() {
 	lvl := zap.NewAtomicLevelAt(zapcore.InfoLevel)
@@ -82,12 +97,19 @@ func S() *zap.SugaredLogger { return cur().sugar }
 func SetLevel(lvl zapcore.Level) { cur().level.SetLevel(lvl) }
 
 // SetVerbose sets the global log level to DebugLevel if verbose is true, otherwise InfoLevel.
+// In non-verbose mode, WARN logs are suppressed from showing.
 func SetVerbose(verbose bool) {
+	isVerbose.Store(verbose)
 	if verbose {
 		SetLevel(zapcore.DebugLevel)
 	} else {
 		SetLevel(zapcore.InfoLevel)
 	}
+}
+
+// IsVerbose reports whether verbose mode is active.
+func IsVerbose() bool {
+	return isVerbose.Load()
 }
 
 // GetLevel returns the current global logging level.
@@ -114,14 +136,16 @@ func ClearHooks() {
 
 // InitLogger initializes the global logger with console stdout and event hook streaming (no disk file creation).
 func InitLogger(_ string, verbose bool) error {
+	isVerbose.Store(verbose)
 	lvl := zap.NewAtomicLevelAt(zapcore.InfoLevel)
 	if verbose {
 		lvl.SetLevel(zapcore.DebugLevel)
 	}
 
+	enabler := verboseLevelEnabler{level: lvl}
 	core := zapcore.NewTee(
-		zapcore.NewCore(newConsoleEncoder(true), zapcore.Lock(os.Stdout), lvl),
-		newHookCore(lvl),
+		zapcore.NewCore(newConsoleEncoder(true), zapcore.Lock(os.Stdout), enabler),
+		newHookCore(enabler),
 	)
 	setState(lvl, zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1)))
 	isInit.Store(true)
@@ -132,6 +156,7 @@ func InitLogger(_ string, verbose bool) error {
 func Close() {
 	_ = cur().raw.Sync()
 	ClearHooks()
+	isVerbose.Store(false)
 	lvl := zap.NewAtomicLevelAt(zapcore.InfoLevel)
 	setState(lvl, newDefaultLogger(lvl, os.Stdout))
 	isInit.Store(false)
@@ -435,10 +460,11 @@ func newConsoleEncoder(color bool) zapcore.Encoder {
 	return &cleanConsoleEncoder{Encoder: zapcore.NewConsoleEncoder(cfg), color: useColor}
 }
 
-func newDefaultLogger(lvl zapcore.LevelEnabler, w io.Writer) *zap.Logger {
+func newDefaultLogger(lvl zap.AtomicLevel, w io.Writer) *zap.Logger {
+	enabler := verboseLevelEnabler{level: lvl}
 	core := zapcore.NewTee(
-		zapcore.NewCore(newConsoleEncoder(true), zapcore.Lock(zapcore.AddSync(w)), lvl),
-		newHookCore(lvl),
+		zapcore.NewCore(newConsoleEncoder(true), zapcore.Lock(zapcore.AddSync(w)), enabler),
+		newHookCore(enabler),
 	)
 	return zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1))
 }
@@ -593,12 +619,16 @@ func logMessage(lvl zapcore.Level, msg string, args ...any) {
 	st := cur()
 
 	if len(args) == 0 {
-		st.raw.Check(lvl, msg).Write()
+		if ce := st.raw.Check(lvl, msg); ce != nil {
+			ce.Write()
+		}
 		return
 	}
 
 	if fields, ok := asFields(args); ok {
-		st.raw.Check(lvl, msg).Write(fields...)
+		if ce := st.raw.Check(lvl, msg); ce != nil {
+			ce.Write(fields...)
+		}
 		return
 	}
 
