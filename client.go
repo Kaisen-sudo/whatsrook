@@ -239,11 +239,12 @@ func OpenStoreContainer(ctx context.Context, dataDir, database string, sessionPh
 
 	// If resolved to a PostgreSQL URI, connect to Postgres
 	if strings.HasPrefix(dbConn, "postgres://") || strings.HasPrefix(dbConn, "postgresql://") {
-		logger.Info("attempting connection to PostgreSQL database...", "url", sanitizeDBURL(dbConn))
+		logger.Debug("attempting connection to PostgreSQL database...", "url", sanitizeDBURL(dbConn))
 		container, err := sqlstore.New(ctx, "postgres", dbConn, waLogger)
 		if err == nil && container != nil {
 			configureConnectionPool(container, dbConn)
-			logger.Info("successfully connected to PostgreSQL database")
+			logger.Debug("successfully connected to PostgreSQL database")
+			logger.Info("Database connected successfully")
 			return container, nil
 		}
 
@@ -254,7 +255,8 @@ func OpenStoreContainer(ctx context.Context, dataDir, database string, sessionPh
 			container, errDisable := sqlstore.New(ctx, "postgres", disableURL, waLogger)
 			if errDisable == nil && container != nil {
 				configureConnectionPool(container, disableURL)
-				logger.Info("successfully connected to PostgreSQL database with sslmode=disable")
+				logger.Debug("successfully connected to PostgreSQL database with sslmode=disable")
+				logger.Info("Database connected successfully")
 				return container, nil
 			}
 			return nil, fmt.Errorf("failed to connect to PostgreSQL (ssl retry also failed: %v): %w", errDisable, err)
@@ -290,7 +292,7 @@ func OpenStoreContainer(ctx context.Context, dataDir, database string, sessionPh
 		)
 	}
 
-	logger.Info("attempting connection to SQLite database...", "dsn", sqliteDSN)
+	logger.Debug("attempting connection to SQLite database...", "dsn", sqliteDSN)
 	container, err := sqlstore.New(ctx, "sqlite", sqliteDSN, waLogger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to SQLite database: %w", err)
@@ -304,7 +306,8 @@ func OpenStoreContainer(ctx context.Context, dataDir, database string, sessionPh
 		db.RawDB.SetConnMaxLifetime(0) // keep connection open
 	}
 
-	logger.Info("successfully initialized SQLite database store")
+	logger.Debug("successfully initialized SQLite database store")
+	logger.Info("Database connected successfully")
 	return container, nil
 }
 
@@ -573,7 +576,8 @@ func (c *Client) PairPhone(ctx context.Context, phone string) (string, error) {
 		return "", fmt.Errorf("invalid phone number: cannot be empty")
 	}
 
-	logger.Info("initiating companion device phone pairing...", "phone", cleanPhone)
+	logger.Debug("initiating companion device phone pairing...", "phone", cleanPhone)
+	logger.Info("Requesting pairing code from WhatsApp...")
 
 	if !cli.IsConnected() {
 		if err := cli.Connect(); err != nil {
@@ -586,7 +590,8 @@ func (c *Client) PairPhone(ctx context.Context, phone string) (string, error) {
 		return "", fmt.Errorf("phone pairing request failed: %w", err)
 	}
 
-	logger.Info("pairing code generated successfully", "phone", cleanPhone, "code", code)
+	logger.Debug("pairing code generated successfully", "phone", cleanPhone, "code", code)
+	logger.Info("Pairing code generated successfully")
 	return code, nil
 }
 

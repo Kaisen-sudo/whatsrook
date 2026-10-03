@@ -178,10 +178,11 @@ func (b *Bot) runSession(ctx context.Context) error {
 
 	// Explicit session logout routine
 	if b.cfg.Logout {
-		logger.Info("initiating session logout", "session", b.cfg.Session)
+		logger.Debug("initiating session logout", "session", b.cfg.Session)
+		logger.Info("Logging out of WhatsApp...")
 
 		if cli.Store.ID == nil {
-			logger.Info("session was never paired; skipping server-side revocation")
+			logger.Debug("session was never paired; skipping server-side revocation")
 		} else {
 			connected := make(chan struct{}, 1)
 			cli.AddEventHandler(func(evt any) {
@@ -199,7 +200,7 @@ func (b *Bot) runSession(ctx context.Context) error {
 				logoutCtx, logoutCancel := context.WithTimeout(sessionCtx, 10*time.Second)
 				select {
 				case <-connected:
-					logger.Info("connected to WhatsApp routing servers; dispatching logout frame")
+					logger.Debug("connected to WhatsApp routing servers; dispatching logout frame")
 				case <-logoutCtx.Done():
 					logger.Warn("connection timeout during logout sequence; forcing server revocation")
 				}
@@ -213,7 +214,8 @@ func (b *Bot) runSession(ctx context.Context) error {
 		}
 
 		b.client.ClearSessionDB(sessionCtx, b.cfg.Session)
-		logger.Info("session credentials and records purged successfully", "session", b.cfg.Session)
+		logger.Debug("session credentials and records purged successfully", "session", b.cfg.Session)
+		logger.Info("Logged out successfully")
 		return nil
 	}
 
@@ -290,7 +292,8 @@ func (b *Bot) runQR(ctx context.Context) error {
 			_ = qrServer.Close()
 			logger.Debug("temporary qr server released", "port", qrServer.Port())
 		}()
-		logger.Info("temporary QR server started", "url", qrServer.URL())
+		logger.Debug("temporary QR server started", "url", qrServer.URL())
+		logger.Info("Scan the QR code to pair your device")
 		if b.cfg.QRCode {
 			fmt.Printf("\n==> Scan QR Code interface via browser: %s\n\n", qrServer.URL())
 		}
@@ -317,7 +320,7 @@ func (b *Bot) runQR(ctx context.Context) error {
 				qrServer.SetPaired()
 				time.Sleep(1 * time.Second)
 			}
-			logger.Info("QR code pairing successful, shutting down temporary QR server")
+			logger.Debug("QR code pairing successful, shutting down temporary QR server")
 			return nil
 		default:
 			logger.Debug("qr event dispatched", "event", evt.Event)
@@ -345,7 +348,8 @@ func (b *Bot) WAEventHandler(evt any) {
 		_ = v // QR frames handled directly via runQR channel loop
 
 	case *events.PairSuccess:
-		logger.Info("pairing completed successfully", "event", v)
+		logger.Debug("pairing completed successfully", "event", v)
+		logger.Info("Device paired successfully!")
 		// After QR pairing, WhatsApp drops the pairing socket via stream:error 516.
 		// PairSuccess fires while the socket is still alive, so we must wait for the
 		// disconnect before calling Connect() — whatsmeow does not emit events.Disconnected
@@ -381,10 +385,12 @@ func (b *Bot) WAEventHandler(evt any) {
 		}
 
 	case *events.Disconnected:
-		logger.Info("Socket connection disconnected", "event", v)
+		logger.Debug("Socket connection disconnected", "event", v)
+		logger.Info("Disconnected from WhatsApp")
 
 	case *events.Connected:
-		logger.Info("Socket connection established", "session", b.cfg.Session, "event", v)
+		logger.Debug("Socket connection established", "session", b.cfg.Session, "event", v)
+		logger.Info("Connected to WhatsApp")
 		if cli != nil {
 			if len(cli.Store.PushName) == 0 {
 				cli.Store.PushName = "WhatsRook"
@@ -396,7 +402,8 @@ func (b *Bot) WAEventHandler(evt any) {
 			if err := cli.SendPresence(context.Background(), types.PresenceAvailable); err != nil {
 				logger.Warn("Failed to send presence available", "err", err)
 			} else {
-				logger.Info("Client presence set to online and browser active")
+				logger.Debug("Client presence set to online and browser active")
+				logger.Info("Bot is now online")
 			}
 
 			go func() {
@@ -507,11 +514,11 @@ func (b *Bot) WAEventHandler(evt any) {
 		b.groupManager.UpdateFromEvent(context.Background(), cli, v)
 
 	case *events.NewsletterJoin:
-		logger.Info("newsletter subscribed", "event", v)
+		logger.Debug("newsletter subscribed", "event", v)
 		b.groupManager.UpdateFromEvent(context.Background(), cli, v)
 
 	case *events.NewsletterLeave:
-		logger.Info("newsletter unlinked", "event", v)
+		logger.Debug("newsletter unlinked", "event", v)
 		b.groupManager.UpdateFromEvent(context.Background(), cli, v)
 
 	case *events.NewsletterMuteChange:
@@ -526,9 +533,9 @@ func (b *Bot) WAEventHandler(evt any) {
 	case *events.KeepAliveTimeout:
 		logger.Warn("keepalive ping timed out", "event", v)
 	case *events.KeepAliveRestored:
-		logger.Info("keepalive connection restored", "event", v)
+		logger.Debug("keepalive connection restored", "event", v)
 	case *events.ManualLoginReconnect:
-		logger.Info("manual login reconnect triggered", "event", v)
+		logger.Debug("manual login reconnect triggered", "event", v)
 	case *events.QRScannedWithoutMultidevice:
 		logger.Warn("qr scanned on legacy non-multidevice client", "event", v)
 
@@ -565,9 +572,9 @@ func (b *Bot) WAEventHandler(evt any) {
 	case *events.IdentityChange:
 		logger.Warn("e2ee identity key changed", "event", v)
 	case *events.PrivacySettings:
-		logger.Info("account privacy settings updated", "event", v)
+		logger.Debug("account privacy settings updated", "event", v)
 	case *events.DisappearingMode:
-		logger.Info("disappearing mode updated",
+		logger.Debug("disappearing mode updated",
 			"chat", v.Chat.String(),
 			"timer", v.Timer.String(),
 			"is_ephemeral", v.IsEphemeral,
@@ -576,15 +583,15 @@ func (b *Bot) WAEventHandler(evt any) {
 		)
 		b.groupManager.UpdateFromEvent(context.Background(), cli, v)
 	case *events.Blocklist:
-		logger.Info("blocklist synchronized", "event", v)
+		logger.Debug("blocklist synchronized", "event", v)
 	case *events.NotifyAccountReachoutTimelock:
 		logger.Warn("account reachout timelock notification", "event", v)
 
 	// Call Signaling Transitions
 	case *events.CallOfferNotice:
-		logger.Info("call offer notice received", "event", v)
+		logger.Debug("call offer notice received", "event", v)
 	case *events.CallAccept:
-		logger.Info("call accepted", "event", v)
+		logger.Debug("call accepted", "event", v)
 	case *events.CallPreAccept:
 		logger.Debug("call pre-accept signal", "event", v)
 	case *events.CallRelayLatency:
@@ -592,9 +599,9 @@ func (b *Bot) WAEventHandler(evt any) {
 	case *events.CallTransport:
 		logger.Debug("call transport parameters negotiated", "event", v)
 	case *events.CallTerminate:
-		logger.Info("call terminated", "event", v)
+		logger.Debug("call terminated", "event", v)
 	case *events.CallReject:
-		logger.Info("call rejected", "event", v)
+		logger.Debug("call rejected", "event", v)
 	case *events.UnknownCallEvent:
 		logger.Debug("unknown call event frame", "event", v)
 

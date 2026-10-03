@@ -135,7 +135,7 @@ func downloadAndSendImages(ctx *dispatch.Context, rawURL string, meta *MediaMeta
 			}
 		}
 		if len(items) > 0 {
-			logger.Info("downloadAndSendImages: delivering multi-image gallery from meta entries", "count", len(items))
+			logger.Debug("downloadAndSendImages: delivering multi-image gallery from meta entries", "count", len(items))
 			return sendImageItems(ctx, items, baseCaption)
 		}
 	}
@@ -291,6 +291,6 @@ func sendImageItems(ctx *dispatch.Context, items []ImageItem, baseCaption string
 		})
 	}
 
-	logger.Info("sendImageItems: sending multi-image album", "count", len(albumItems))
+	logger.Debug("sendImageItems: sending multi-image album", "count", len(albumItems))
 	return ctx.ReplyWithAlbum(albumItems)
 }

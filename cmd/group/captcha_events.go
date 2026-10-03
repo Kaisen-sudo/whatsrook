@@ -195,7 +195,7 @@ func processGroupCaptchaJoins(cli *whatsmeow.Client, g *events.GroupInfo) {
 					return
 				}
 
-				logger.Info("processGroupCaptchaJoins: unverified participant removed from group", "group", g.JID.String(), "user", partCopy.String(), "username", userCopy)
+				logger.Debug("processGroupCaptchaJoins: unverified participant removed from group", "group", g.JID.String(), "user", partCopy.String(), "username", userCopy)
 
 				kickTb := whatsrook.NewText()
 				kickTb.Linef("@%s was removed from the group for failing to complete the captcha verification within %s.", userCopy, timeoutDisplay)

@@ -226,7 +226,7 @@ func ResolveDatabaseTarget(dbInput string) (dialect string, dsn string) {
 
 	if trimmed == "" {
 		ensureParentDir(defaultSQLitePath)
-		logger.Info("No database specified; using default SQLite database", "path", defaultSQLitePath)
+		logger.Debug("No database specified; using default SQLite database", "path", defaultSQLitePath)
 		return "sqlite3", defaultSQLiteDSN
 	}
 
@@ -368,7 +368,7 @@ func RunMigrations(ctx context.Context, db *dbutil.Database) error {
 			continue
 		}
 
-		logger.Info("Applying CLI database migration...", "version", m.Version, "description", m.Description, "dialect", db.Dialect.String())
+		logger.Debug("Applying CLI database migration...", "version", m.Version, "description", m.Description, "dialect", db.Dialect.String())
 		if err := m.Up(ctx, db); err != nil {
 			return fmt.Errorf("migration v%d (%s) failed: %w", m.Version, m.Description, err)
 		}
@@ -376,7 +376,7 @@ func RunMigrations(ctx context.Context, db *dbutil.Database) error {
 		if _, err := db.Exec(ctx, recordVersionQuery, m.Version, time.Now().UTC(), m.Description); err != nil {
 			return fmt.Errorf("failed to record migration v%d: %w", m.Version, err)
 		}
-		logger.Info("Successfully applied CLI database migration", "version", m.Version)
+		logger.Debug("Successfully applied CLI database migration", "version", m.Version)
 	}
 
 	return nil

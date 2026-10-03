@@ -86,7 +86,8 @@ func (gm *GroupManager) SyncAll(ctx context.Context, cli *whatsmeow.Client) erro
 	gm.syncing.Lock()
 	defer gm.syncing.Unlock()
 
-	logger.Info("GroupManager: starting full sync of groups, communities, and newsletters...")
+	logger.Debug("GroupManager: starting full sync of groups, communities, and newsletters...")
+	logger.Info("Syncing groups and channels...")
 
 	ourJID := ""
 	var s *sqlstore.SQLStore
@@ -243,11 +244,12 @@ func (gm *GroupManager) WarmupDevices(ctx context.Context, cli *whatsmeow.Client
 		}
 	}
 
-	logger.Info("GroupManager: device and session cache warm up complete",
+	logger.Debug("GroupManager: device and session cache warm up complete",
 		"total_participants", len(uniqueJIDs),
 		"companion_devices", totalCached,
 		"duration", time.Since(start),
 	)
+	logger.Info("Sync complete, bot is ready")
 }
 
 func (gm *GroupManager) convertGroupInfo(g *types.GroupInfo) *store.GroupMetadata {
