@@ -73,6 +73,15 @@ func VideoGif(ctx context.Context, client *whatsmeow.Client, chat types.JID, dat
 
 // VideoWithProgress sends a video with an optional upload progress callback.
 func VideoWithProgress(ctx context.Context, client *whatsmeow.Client, chat types.JID, data []byte, mimetype, caption string, onProgress func(uploaded, total uint64), quoted ...*waE2E.ContextInfo) error {
+	return videoWithProgressInternal(ctx, client, chat, data, mimetype, caption, false, onProgress, quoted...)
+}
+
+// VideoGifWithProgress sends a looping GIF video with an optional upload progress callback.
+func VideoGifWithProgress(ctx context.Context, client *whatsmeow.Client, chat types.JID, data []byte, mimetype, caption string, onProgress func(uploaded, total uint64), quoted ...*waE2E.ContextInfo) error {
+	return videoWithProgressInternal(ctx, client, chat, data, mimetype, caption, true, onProgress, quoted...)
+}
+
+func videoWithProgressInternal(ctx context.Context, client *whatsmeow.Client, chat types.JID, data []byte, mimetype, caption string, isGif bool, onProgress func(uploaded, total uint64), quoted ...*waE2E.ContextInfo) error {
 	if client == nil {
 		return fmt.Errorf("client unavailable")
 	}
@@ -98,6 +107,7 @@ func VideoWithProgress(ctx context.Context, client *whatsmeow.Client, chat types
 			DirectPath:    &uploaded.DirectPath,
 			MediaKey:      uploaded.MediaKey,
 			Mimetype:      &mimetype,
+			GifPlayback:   new(isGif),
 			FileEncSHA256: uploaded.FileEncSHA256,
 			FileSHA256:    uploaded.FileSHA256,
 			FileLength:    new(uint64(len(data))),

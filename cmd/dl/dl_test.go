@@ -132,3 +132,87 @@ func TestFormatHelpers(t *testing.T) {
 		}
 	})
 }
+
+func TestTwitterGifAndMediaMeta(t *testing.T) {
+	t.Run("Twitter GIF identification", func(t *testing.T) {
+		twitterGifMeta := &MediaMeta{
+			ID:        "2106052097573867521",
+			Title:     "Twitter GIF",
+			URL:       "https://video.twimg.com/tweet_video/HThhmiOWMAAtWlU.mp4",
+			Ext:       "mp4",
+			Thumbnail: "https://pbs.twimg.com/tweet_video_thumb/HThhmiOWMAAtWlU.jpg",
+			VCodec:    "",
+			ACodec:    "none",
+			Duration:  0,
+			Formats: []FormatMeta{
+				{
+					URL:      "https://video.twimg.com/tweet_video/HThhmiOWMAAtWlU.mp4",
+					Ext:      "mp4",
+					AudioExt: "none",
+					ACodec:   "none",
+				},
+			},
+		}
+
+		if !twitterGifMeta.IsGif() {
+			t.Errorf("expected IsGif() to be true for Twitter GIF, got false")
+		}
+		if twitterGifMeta.IsImage() {
+			t.Errorf("expected IsImage() to be false for Twitter GIF, got true")
+		}
+		if twitterGifMeta.HasAudio() {
+			t.Errorf("expected HasAudio() to be false for Twitter GIF, got true")
+		}
+	})
+
+	t.Run("Regular Video with Audio", func(t *testing.T) {
+		regularVideoMeta := &MediaMeta{
+			ID:       "123456789",
+			Title:    "Twitter Video",
+			URL:      "https://video.twimg.com/amplify_video/123456789/vid/avc1/720x1280/abc.mp4",
+			Ext:      "mp4",
+			VCodec:   "h264",
+			ACodec:   "aac",
+			Duration: 15.0,
+			Formats: []FormatMeta{
+				{
+					URL:      "https://video.twimg.com/amplify_video/123456789/vid/avc1/720x1280/abc.mp4",
+					Ext:      "mp4",
+					AudioExt: "m4a",
+					ACodec:   "mp4a.40.2",
+				},
+			},
+		}
+
+		if regularVideoMeta.IsGif() {
+			t.Errorf("expected IsGif() to be false for normal video, got true")
+		}
+		if regularVideoMeta.IsImage() {
+			t.Errorf("expected IsImage() to be false for normal video, got true")
+		}
+		if !regularVideoMeta.HasAudio() {
+			t.Errorf("expected HasAudio() to be true for video with audio, got false")
+		}
+	})
+
+	t.Run("Static Image Meta", func(t *testing.T) {
+		imageMeta := &MediaMeta{
+			ID:    "photo123",
+			Title: "Image post",
+			Ext:   "jpg",
+			Entries: []MediaMeta{
+				{URL: "https://pbs.twimg.com/media/abc.jpg", Ext: "jpg"},
+			},
+		}
+
+		if !imageMeta.IsImage() {
+			t.Errorf("expected IsImage() to be true for image post, got false")
+		}
+		if imageMeta.IsGif() {
+			t.Errorf("expected IsGif() to be false for static image, got true")
+		}
+		if imageMeta.HasAudio() {
+			t.Errorf("expected HasAudio() to be false for image post, got true")
+		}
+	})
+}

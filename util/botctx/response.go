@@ -158,6 +158,12 @@ func (c *PluginContext) ReplyWithVideoGif(data []byte, mimetype, caption string)
 	return send.VideoGif(c.GetSendContext(), c.Client, c.Chat, data, mimetype, caption, c.replyContextInfo())
 }
 
+// ReplyWithVideoGifWithProgress sends a looping GIF video quoted to the triggering message while reporting upload progress.
+func (c *PluginContext) ReplyWithVideoGifWithProgress(data []byte, mimetype, caption string, onProgress func(uploaded, total uint64)) error {
+	c.StopAutoLoader()
+	return send.VideoGifWithProgress(c.GetSendContext(), c.Client, c.Chat, data, mimetype, caption, onProgress, c.replyContextInfo())
+}
+
 // ReplyWithVideoWithMentions sends a video with mentions quoted to the triggering message.
 func (c *PluginContext) ReplyWithVideoWithMentions(data []byte, mimetype, caption string, mentions []types.JID) error {
 	c.StopAutoLoader()

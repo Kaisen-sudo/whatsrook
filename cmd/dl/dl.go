@@ -33,7 +33,7 @@ import (
 func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "dl",
-		Alias:       "download,ytdl,ytdlp",
+		Alias:       "download,ytdl,ytdlp,twitter,x,twt",
 		Description: "Download video, audio, or pictures from any link",
 		Category:    "tools",
 		IsPublic:    true,
@@ -41,21 +41,51 @@ func init() {
 	})
 }
 
+// FormatMeta represents format-level metadata extracted by yt-dlp.
+type FormatMeta struct {
+	FormatID string `json:"format_id"`
+	URL      string `json:"url"`
+	Ext      string `json:"ext"`
+	VCodec   string `json:"vcodec"`
+	ACodec   string `json:"acodec"`
+	AudioExt string `json:"audio_ext"`
+	VideoExt string `json:"video_ext"`
+}
+
 // MediaMeta represents structured metadata extracted by yt-dlp.
 type MediaMeta struct {
-	ID           string      `json:"id"`
-	Title        string      `json:"title"`
-	Description  string      `json:"description"`
-	Extractor    string      `json:"extractor"`
-	ExtractorKey string      `json:"extractor_key"`
-	Duration     float64     `json:"duration"`
-	Thumbnail    string      `json:"thumbnail"`
-	Ext          string      `json:"ext"`
-	URL          string      `json:"url"`
-	VCodec       string      `json:"vcodec"`
-	ACodec       string      `json:"acodec"`
-	Type         string      `json:"_type"`
-	Entries      []MediaMeta `json:"entries"`
+	ID           string       `json:"id"`
+	Title        string       `json:"title"`
+	Description  string       `json:"description"`
+	Extractor    string       `json:"extractor"`
+	ExtractorKey string       `json:"extractor_key"`
+	Duration     float64      `json:"duration"`
+	Thumbnail    string       `json:"thumbnail"`
+	Ext          string       `json:"ext"`
+	URL          string       `json:"url"`
+	VCodec       string       `json:"vcodec"`
+	ACodec       string       `json:"acodec"`
+	Type         string       `json:"_type"`
+	Entries      []MediaMeta  `json:"entries"`
+	Formats      []FormatMeta `json:"formats"`
+}
+
+func isVideoExt(ext string) bool {
+	clean := strings.ToLower(strings.TrimPrefix(ext, "."))
+	switch clean {
+	case "mp4", "m4v", "webm", "mkv", "mov", "avi", "flv", "ts", "3gp", "wmv":
+		return true
+	}
+	return false
+}
+
+func isAudioExt(ext string) bool {
+	clean := strings.ToLower(strings.TrimPrefix(ext, "."))
+	switch clean {
+	case "mp3", "m4a", "ogg", "opus", "wav", "flac", "aac", "wma":
+		return true
+	}
+	return false
 }
 
 // IsImage returns true if the extracted metadata indicates an image asset.
@@ -65,11 +95,14 @@ func (m *MediaMeta) IsImage() bool {
 	}
 	cleanExt := strings.ToLower(strings.TrimPrefix(m.Ext, "."))
 	switch cleanExt {
-	case "jpg", "jpeg", "png", "webp", "gif", "bmp", "tiff", "heic", "avif":
+	case "jpg", "jpeg", "png", "webp", "bmp", "tiff", "heic", "avif":
 		return true
 	}
+	if isVideoExt(cleanExt) || isAudioExt(cleanExt) {
+		return false
+	}
 	if (m.VCodec == "none" || m.VCodec == "") && (m.ACodec == "none" || m.ACodec == "") && m.Duration == 0 {
-		if cleanExt != "" {
+		if cleanExt != "" && !isVideoExt(cleanExt) && !isAudioExt(cleanExt) {
 			return true
 		}
 	}
@@ -77,6 +110,57 @@ func (m *MediaMeta) IsImage() bool {
 		return m.Entries[0].IsImage()
 	}
 	return false
+}
+
+// IsGif returns true if the extracted metadata indicates an animated GIF / looping video without audio.
+func (m *MediaMeta) IsGif() bool {
+	cleanExt := strings.ToLower(strings.TrimPrefix(m.Ext, "."))
+	if cleanExt == "gif" {
+		return true
+	}
+	if strings.Contains(strings.ToLower(m.URL), "tweet_video") {
+		return true
+	}
+	if strings.Contains(strings.ToLower(m.Thumbnail), "tweet_video_thumb") {
+		return true
+	}
+	for _, f := range m.Formats {
+		if strings.Contains(strings.ToLower(f.URL), "tweet_video") {
+			return true
+		}
+	}
+	if len(m.Entries) > 0 && m.Entries[0].IsGif() {
+		return true
+	}
+	return false
+}
+
+// HasAudio reports whether the media metadata indicates an audio track.
+func (m *MediaMeta) HasAudio() bool {
+	if m.IsGif() {
+		return false
+	}
+	if m.ACodec != "" && m.ACodec != "none" {
+		return true
+	}
+	hasFormatWithAudio := false
+	for _, f := range m.Formats {
+		if f.ACodec != "" && f.ACodec != "none" {
+			hasFormatWithAudio = true
+			break
+		}
+		if f.AudioExt != "" && f.AudioExt != "none" {
+			hasFormatWithAudio = true
+			break
+		}
+	}
+	if hasFormatWithAudio {
+		return true
+	}
+	if len(m.Formats) > 0 {
+		return false
+	}
+	return m.Duration > 0
 }
 
 // GetTitle returns a safe title fallback.
@@ -220,6 +304,9 @@ func handleDL(ctx *dispatch.Context) error {
 	}
 
 	if formatChoice == "audio" {
+		if meta != nil && !meta.HasAudio() {
+			return ctx.Reply("⚠️ This media (GIF/silent video) does not contain an audio track.")
+		}
 		if err := downloadAndSendAudio(ctx, targetURL, meta); err != nil {
 			return sendFailureWithCookiePrompt(ctx, err)
 		}
@@ -232,7 +319,16 @@ func handleDL(ctx *dispatch.Context) error {
 		return nil
 	}
 
-	// 4. Send interactive WhatsApp poll: Video / Audio
+	// 4. If media has no audio track or is an animated GIF, download directly as video/gif without poll
+	if meta != nil && (!meta.HasAudio() || meta.IsGif()) {
+		logger.Debug("handleDL: silent media/gif detected, skipping poll and downloading directly", "url", targetURL)
+		if err := downloadAndSendVideo(ctx, targetURL, meta); err != nil {
+			return sendFailureWithCookiePrompt(ctx, err)
+		}
+		return nil
+	}
+
+	// 5. Send interactive WhatsApp poll: Video / Audio
 	qTitle := meta.GetTitle()
 	if len(qTitle) > 100 {
 		qTitle = qTitle[:97] + "..."
@@ -263,6 +359,10 @@ func handleDL(ctx *dispatch.Context) error {
 		selectedLower := strings.ToLower(selected)
 
 		if strings.Contains(selectedLower, "audio") {
+			if meta != nil && !meta.HasAudio() {
+				_ = ctx.Reply("⚠️ This media does not contain an audio track.")
+				return
+			}
 			if err := downloadAndSendAudio(ctx, targetURL, meta); err != nil {
 				sendFailureWithCookiePrompt(ctx, err)
 			}
@@ -702,6 +802,10 @@ func runYtdlpWithLiveProgress(
 
 // downloadAndSendAudio downloads the best audio track, transcodes it to Opus OGG, and sends it.
 func downloadAndSendAudio(ctx *dispatch.Context, rawURL string, meta *MediaMeta) error {
+	if meta != nil && !meta.HasAudio() {
+		return fmt.Errorf("this media does not contain an audio track")
+	}
+
 	cookiesPath, cleanup := getCookiesFilePath(ctx, rawURL)
 	defer cleanup()
 
@@ -828,18 +932,24 @@ func downloadAndSendVideo(ctx *dispatch.Context, rawURL string, meta *MediaMeta)
 	}
 	args = append(args, rawURL)
 
+	isGif := meta != nil && meta.IsGif()
+	mediaLabel := "Video"
+	if isGif {
+		mediaLabel = "GIF"
+	}
+
 	title := safeMediaTitle(meta)
-	out, progressMsgID, err := runYtdlpWithLiveProgress(ctx, dlCtx, "Video", title, args)
+	out, progressMsgID, err := runYtdlpWithLiveProgress(ctx, dlCtx, mediaLabel, title, args)
 	if err != nil {
-		return fmt.Errorf("video download failed: %w (%s)", err, strings.TrimSpace(string(out)))
+		return fmt.Errorf("%s download failed: %w (%s)", strings.ToLower(mediaLabel), err, strings.TrimSpace(string(out)))
 	}
 
 	matches, _ := filepath.Glob(filepath.Join(os.TempDir(), fmt.Sprintf("ytdl_vid_raw_%d.*", nowNano)))
 	if len(matches) == 0 {
 		if progressMsgID != "" {
-			_, _ = ctx.Edit(progressMsgID, fmt.Sprintf("*Download Failed:*\n_Title: `%s`_\n\n```\nDownloaded video file not found on disk\n```", title))
+			_, _ = ctx.Edit(progressMsgID, fmt.Sprintf("*Download Failed:*\n_Title: `%s`_\n\n```\nDownloaded %s file not found on disk\n```", title, strings.ToLower(mediaLabel)))
 		}
-		return fmt.Errorf("downloaded video file not found on disk")
+		return fmt.Errorf("downloaded %s file not found on disk", strings.ToLower(mediaLabel))
 	}
 	rawVideoFile := matches[0]
 
@@ -855,7 +965,7 @@ func downloadAndSendVideo(ctx *dispatch.Context, rawURL string, meta *MediaMeta)
 	transcodeCtx, cancelTranscode := context.WithTimeout(ctx.GetSendContext(), 4*time.Minute)
 	defer cancelTranscode()
 
-	transcodeCallback := makeTranscodeProgressCallback(ctx, progressMsgID, "Video", title)
+	transcodeCallback := makeTranscodeProgressCallback(ctx, progressMsgID, mediaLabel, title)
 	transcodeErr := EnsureWhatsAppVideoWithProgress(transcodeCtx, rawVideoFile, waVideoOut, duration, transcodeCallback)
 	targetVideoPath := waVideoOut
 	if transcodeErr != nil {
@@ -866,14 +976,19 @@ func downloadAndSendVideo(ctx *dispatch.Context, rawURL string, meta *MediaMeta)
 	videoBytes, err := os.ReadFile(targetVideoPath)
 	if err != nil || len(videoBytes) == 0 {
 		if progressMsgID != "" {
-			_, _ = ctx.Edit(progressMsgID, fmt.Sprintf("*Video Processing Failed:*\n_Title: `%s`_\n\n```\nFailed to read processed video file\n```", title))
+			_, _ = ctx.Edit(progressMsgID, fmt.Sprintf("*%s Processing Failed:*\n_Title: `%s`_\n\n```\nFailed to read processed file\n```", mediaLabel, title))
 		}
 		return fmt.Errorf("failed to read processed video file: %w", err)
 	}
 
 	caption := buildCaption(meta)
-	uploadCallback := makeUploadProgressCallback(ctx, progressMsgID, "Video", title)
-	sendErr := ctx.ReplyWithVideoWithProgress(videoBytes, "video/mp4", caption, uploadCallback)
+	uploadCallback := makeUploadProgressCallback(ctx, progressMsgID, mediaLabel, title)
+	var sendErr error
+	if isGif {
+		sendErr = ctx.ReplyWithVideoGifWithProgress(videoBytes, "video/mp4", caption, uploadCallback)
+	} else {
+		sendErr = ctx.ReplyWithVideoWithProgress(videoBytes, "video/mp4", caption, uploadCallback)
+	}
 	if sendErr == nil && progressMsgID != "" {
 		if _, delErr := ctx.Delete(progressMsgID); delErr != nil {
 			_, _ = ctx.Edit(progressMsgID, fmt.Sprintf("*Download Complete!*\n_Title: `%s`_", title))
