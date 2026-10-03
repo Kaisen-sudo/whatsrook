@@ -24,21 +24,21 @@ import (
 func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "filter",
-		Description: "Add, delete, or list auto-response filters with custom placeholders. Usage: filter [word] [response text] (or reply to media), filter del [word], filter list",
+		Description: "Set, remove, or list auto-reply messages for specific words",
 		Category:    "filters",
 		IsPublic:    true,
 		Handler:     handleFilter,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "bgm",
-		Description: "Add, delete, or list audio auto-responses. Usage: bgm [word] (replying to audio), bgm del [word], bgm list",
+		Description: "Set, remove, or list audio auto-replies for specific words",
 		Category:    "filters",
 		IsPublic:    true,
 		Handler:     handleBGM,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "mention",
-		Description: "Configure auto-response when the bot is tagged. Usage: mention [text...], mention add (replying to a message), mention del, mention list",
+		Description: "Set an auto-reply whenever you are tagged",
 		Category:    "filters",
 		IsPublic:    true,
 		Handler:     handleMention,
@@ -46,7 +46,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "filteradd",
 		Alias:       "addfilter",
-		Description: "Add an auto-response filter for a trigger word. Usage: filteradd [word] [response text] (or reply to a message)",
+		Description: "Add an auto-reply message for a specific word",
 		Category:    "filters",
 		IsPublic:    true,
 		Handler:     handleAddFilter,
@@ -54,7 +54,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "filterget",
 		Alias:       "getfilter",
-		Description: "Get and test the auto-response message for a trigger word. Usage: filterget [word]",
+		Description: "Test the auto-reply message for a specific word",
 		Category:    "filters",
 		IsPublic:    true,
 		Handler:     handleGetFilter,
@@ -62,7 +62,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "filters",
 		Alias:       "listfilters",
-		Description: "List all active auto-response filters. Usage: filters",
+		Description: "List all active auto-replies",
 		Category:    "filters",
 		IsPublic:    true,
 		Handler:     handleListFilters,
@@ -70,7 +70,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "filterdel",
 		Alias:       "delfilter",
-		Description: "Remove an auto-response filter. Usage: filterdel [word]",
+		Description: "Remove an auto-reply message",
 		Category:    "filters",
 		IsPublic:    true,
 		Handler:     handleDelFilter,

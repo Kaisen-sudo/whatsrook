@@ -56,7 +56,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "ttt",
 		Alias:       "tictactoe",
-		Description: "Play Tic-Tac-Toe against the bot AI or another user",
+		Description: "Play Tic-Tac-Toe against a friend or the bot",
 		Category:    "games",
 		IsPublic:    true,
 		Handler:     handleTicTacToe,
@@ -65,7 +65,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "lb",
 		Alias:       "leaderboard",
-		Description: "Show overall XP & game leaderboard",
+		Description: "Show group game scores and leaderboard",
 		Category:    "games",
 		GroupOnly:   true,
 		IsPublic:    true,
@@ -75,7 +75,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "unscramble",
 		Alias:       "wordunscramble",
-		Description: "Unscramble word game with 30s lobby, dynamic time limits, performance ratings & XP",
+		Description: "Play the word unscramble game with friends",
 		Category:    "games",
 		IsPublic:    true,
 		Handler:     handleUnscramble,
@@ -84,7 +84,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "wcg",
 		Alias:       "wordchain",
-		Description: "Word Chain Game – submit valid English words matching the required starting letter",
+		Description: "Play the word chain game with friends",
 		Category:    "games",
 		IsPublic:    true,
 		Handler:     handleWCGChain,
@@ -852,7 +852,7 @@ func startUnscrambleTurn(ctx *dispatch.Context, game *UnscrambleGame) {
 			return
 		}
 
-		logger.Info("Unscramble turn timed out for player", "chat", game.ChatKey, "player", currentPlayer.Tag)
+		logger.Debug("Unscramble turn timed out for player", "chat", game.ChatKey, "player", currentPlayer.Tag)
 		cctx := &dispatch.Context{
 			Ctx:    context.Background(),
 			Client: ctx.Client,

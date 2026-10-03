@@ -35,7 +35,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "call",
 		Alias:       "phone",
-		Description: "Call a number or open the interactive call menu",
+		Description: "Make a WhatsApp call or open call menu",
 		Category:    "calls",
 		IsPublic:    true,
 		Handler:     handleCall,
@@ -43,7 +43,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "callaudio",
 		Alias:       "setcallaudio",
-		Description: "Call a number with audio, or set your default call audio",
+		Description: "Make an audio call or set call sound",
 		Category:    "calls",
 		IsPublic:    true,
 		Handler:     handleCallAudio,
@@ -51,21 +51,21 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "callvideo",
 		Alias:       "videocall",
-		Description: "Call a number with video, or set your default call video",
+		Description: "Make a video call or set call video",
 		Category:    "calls",
 		IsPublic:    true,
 		Handler:     handleCallVideo,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "anticall",
-		Description: "Configure anti-call security to automatically reject incoming WhatsApp calls",
+		Description: "Automatically decline incoming calls to protect the bot",
 		Category:    "calls",
 		IsPublic:    true,
 		Handler:     handleAntiCall,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "voicemail",
-		Description: "Toggle or check automated voicemail answering for incoming calls",
+		Description: "Turn automated voicemail answering on or off",
 		Category:    "calls",
 		IsPublic:    true,
 		Handler:     handleVoicemail,

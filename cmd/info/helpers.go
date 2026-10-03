@@ -12,7 +12,7 @@ const (
 	AliveMediaMimeKey = "alive_media_mime"
 	AliveMediaFileKey = "alive_media_file"
 
-	DefaultAliveTpl      = "@user I am alive\n\nuse {prefix}alive customize to see how alive message can be customize"
+	DefaultAliveTpl      = "Hey @user, I am online and working!\n\nType {prefix}alive guide to learn how to customize this message."
 	DefaultAliveTemplate = DefaultAliveTpl
 )
 

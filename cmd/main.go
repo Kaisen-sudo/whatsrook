@@ -143,20 +143,20 @@ func printCLIUsage() {
        whatsrook version
 
 Arguments:
-  <phone>                    Phone number used to identify the session
-  <SE_ID:...>                Encrypted session configuration token from web provisioner
+  <phone>                    Phone number for the WhatsApp account
+  <SE_ID:...>                Session restore token
 
 Commands & Options:
-  auth <pair | qr>           Authentication method (default: qr)
-  autoupdate <on | off>      Toggle automatic update checks
-  business                   Enable WhatsApp Business mode
-  client <type>              Client profile: default, android, ios (default: default)
-  db <url>                   Database connection string or SQLite file path (default: local SQLite)
-  logout                     Remove session credentials and exit
-  update [action]            Check or apply update (check, stable, beta)
-  verbose                    Enable verbose debug logging
-  version                    Print version and exit
-  help                       Show this help message
+  auth <pair | qr>           Login method: "pair" (phone code) or "qr" (QR code) (default: qr)
+  autoupdate <on | off>      Turn automatic updates on or off
+  business                   Connect as WhatsApp Business
+  client <type>              Device style: default, android, ios (default: default)
+  db <url>                   Custom database URL or file path (default: local database)
+  logout                     Log out and disconnect session
+  update [action]            Check or install updates (check, stable, beta)
+  verbose                    Show detailed technical logs
+  version                    Show app version
+  help                       Show this help guide
 `)
 }
 
@@ -438,7 +438,7 @@ func handleLogoutCLI(ctx context.Context, args CLIArgs) {
 	}
 
 	cleanSession := strings.TrimPrefix(session, "+")
-	logger.Info("initiating logout for session", "session", cleanSession)
+	logger.Debug("initiating logout for session", "session", cleanSession)
 	fmt.Printf("Logging out session +%s...\n", cleanSession)
 
 	if err := whatsrook.DeleteStoredSession(ctx, dataDir, args.Database, cleanSession); err != nil {
@@ -447,7 +447,7 @@ func handleLogoutCLI(ctx context.Context, args CLIArgs) {
 		os.Exit(1)
 	}
 
-	logger.Info("session logged out and credentials removed", "session", cleanSession)
+	logger.Debug("session logged out and credentials removed", "session", cleanSession)
 	fmt.Printf("Session +%s logged out and credentials purged successfully.\n", cleanSession)
 }
 

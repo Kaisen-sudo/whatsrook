@@ -34,7 +34,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "dl",
 		Alias:       "download,ytdl,ytdlp",
-		Description: "Download video, audio, or image media from any URL with interactive format selection",
+		Description: "Download video, audio, or pictures from any link",
 		Category:    "tools",
 		IsPublic:    true,
 		Handler:     handleDL,
@@ -182,7 +182,7 @@ func handleDL(ctx *dispatch.Context) error {
 
 	// 1. If direct image URL, download and send directly without yt-dlp overhead
 	if isImageURL(targetURL) {
-		logger.Info("handleDL: direct image URL detected", "url", targetURL)
+		logger.Debug("handleDL: direct image URL detected", "url", targetURL)
 		if err := downloadAndSendDirectImage(ctx, targetURL); err == nil {
 			return nil
 		}
@@ -198,7 +198,7 @@ func handleDL(ctx *dispatch.Context) error {
 
 	// 3. Automatically detect if the downloadable is an image (single or multi-image)
 	if meta.IsImage() {
-		logger.Info("handleDL: target identified as image", "url", targetURL, "ext", meta.Ext, "entries", len(meta.Entries))
+		logger.Debug("handleDL: target identified as image", "url", targetURL, "ext", meta.Ext, "entries", len(meta.Entries))
 		if err := downloadAndSendImages(ctx, targetURL, meta); err != nil {
 			return sendFailureWithCookiePrompt(ctx, err)
 		}

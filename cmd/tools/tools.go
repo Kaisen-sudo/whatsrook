@@ -20,7 +20,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "contact",
 		Alias:       "savecontact",
-		Description: "Save a user to your WhatsApp contact list via AppState sync and send a native vCard",
+		Description: "Save someone to your contacts and send their contact card",
 		Category:    "tools",
 		IsPublic:    true,
 		Handler:     handleSaveContact,
@@ -28,7 +28,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "whois",
 		Alias:       "userinfo",
-		Description: "Display detailed profile information and profile photo of a WhatsApp user",
+		Description: "Show user profile details and profile picture",
 		Category:    "tools",
 		IsPublic:    true,
 		Handler:     handleUserInfo,
@@ -36,7 +36,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "timezone",
 		Alias:       "tz",
-		Description: "Search and configure your active timezone offset",
+		Description: "View or change your timezone",
 		Category:    "tools",
 		IsPublic:    true,
 		Handler:     handleTimezone,
@@ -44,7 +44,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "font",
 		Alias:       "fonts,fancy",
-		Description: "Convert text into styled Unicode decorative fonts",
+		Description: "Convert text into stylish fancy fonts",
 		Category:    "tools",
 		IsPublic:    true,
 		Handler:     handleFont,
@@ -100,9 +100,9 @@ func handleSaveContact(ctx *dispatch.Context) error {
 
 		if fullName == "" {
 			if isGroup {
-				return ctx.Replyf("Could not auto-detect contact pushname. Please specify a name:\n- %ssavecontact <Name> @user", p)
+				return ctx.Replyf("Could not find a name for this contact. Please provide a name:\n- %ssavecontact <Name> @user", p)
 			}
-			return ctx.Replyf("Could not auto-detect contact pushname. Please specify a name:\n- %ssavecontact <Name>", p)
+			return ctx.Replyf("Could not find a name for this contact. Please provide a name:\n- %ssavecontact <Name>", p)
 		}
 	}
 

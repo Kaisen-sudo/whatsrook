@@ -65,7 +65,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "afk",
 		Alias:       "away",
-		Description: "Set or customize your Away-From-Keyboard (AFK) status with customizable templates, @ placeholders, and last active tracking",
+		Description: "Set an automatic away message when you are busy",
 		Category:    "tools",
 		IsPublic:    false,
 		Handler:     handleAFK,
@@ -73,7 +73,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "autobio",
 		Alias:       "bioauto",
-		Description: "Auto-update WhatsApp status bio every minute with time & inspirational quotes",
+		Description: "Show current time and quotes in your WhatsApp bio automatically",
 		Category:    "owner",
 		IsPublic:    true,
 		Handler:     handleAutoBio,
@@ -81,14 +81,14 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "timezone",
 		Alias:       "tz",
-		Description: "View or configure timezone for automute schedules via poll replies",
+		Description: "Set your timezone for automatic group muting",
 		Category:    "group",
 		IsPublic:    true,
 		Handler:     handleTimezone,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "setbot",
-		Description: "Unified Bot Customization Wizard (Bot Name, Menu Thumbnail, Prefix, Bio)",
+		Description: "Easy setup guide to customize your bot",
 		Category:    "settings",
 		IsPublic:    false,
 		Handler:     handleSetBot,
@@ -96,7 +96,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "reconfig",
 		Alias:       "reconfigure",
-		Description: "Reconfigure bot settings and re-bring the setup wizard",
+		Description: "Open the bot setup guide",
 		Category:    "settings",
 		IsPublic:    true,
 		Handler:     handleReconfigure,
@@ -104,75 +104,75 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "autolike",
 		Alias:       "likestatus",
-		Description: "Automatically react with love emojis to incoming status broadcasts",
+		Description: "Automatically like your contacts' WhatsApp statuses",
 		Category:    "settings",
 		IsPublic:    false,
 		Handler:     handleLikeStatusCmd,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "prefix",
-		Description: "View or change the bot command prefix(es). Use 'none' for no prefix.",
+		Description: "View or change the command symbol (like . or !)",
 		Category:    "settings",
 		Handler:     handlePrefix,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "privacy",
 		Alias:       "myprivacy",
-		Description: "View and update WhatsApp privacy settings (Last Seen, Profile Photo, Status, Read Receipts) via poll replies",
+		Description: "Change WhatsApp privacy settings (Last Seen, Profile Photo, Read Receipts)",
 		Category:    "owner",
 		IsPublic:    false,
 		Handler:     handlePrivacy,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "setcmd",
-		Description: "Link a sticker to a command trigger. Usage: setcmd [command_name] [args...] (replying to a sticker)",
+		Description: "Make a sticker run a command when sent (reply to sticker)",
 		Category:    "tools",
 		Handler:     handleSetCmd,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "delcmd",
-		Description: "Unlink a sticker from a command trigger. Usage: delcmd [command_name] or reply to a mapped sticker",
+		Description: "Remove a command linked to a sticker",
 		Category:    "tools",
 		Handler:     handleDelCmd,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "getcmd",
-		Description: "List all mapped sticker commands",
+		Description: "Show all sticker commands",
 		Category:    "tools",
 		Handler:     handleGetCmd,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "discmd",
 		Alias:       "disablecmd",
-		Description: "Disable a command globally for normal users",
+		Description: "Turn off a command for members",
 		Category:    "owner",
 		Handler:     handleDisableCmd,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "encmd",
 		Alias:       "enablecmd",
-		Description: "Enable a previously disabled command",
+		Description: "Turn on a previously disabled command",
 		Category:    "owner",
 		Handler:     handleEnableCmd,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "autoview",
 		Alias:       "autovv",
-		Description: "Toggle automatic ViewOnce message forwarding to DM",
+		Description: "Save View Once photos/videos directly to your chat",
 		Category:    "settings",
 		Handler:     handleAutoVV,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "savestatus",
 		Alias:       "autostatus",
-		Description: "Toggle automatic status updates saving to DM",
+		Description: "Save your contacts' WhatsApp Statuses to your chat",
 		Category:    "settings",
 		Handler:     handleAutoStatusSave,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "autoreact",
 		Alias:       "reactauto, autoemoji",
-		Description: "Automatically react with emojis to incoming messages. Usage: autoreact [on|off|toggle|emoji <emojis...>|scope <all|group|dm>]",
+		Description: "Automatically react with emojis to incoming messages",
 		Category:    "settings",
 		IsPublic:    false,
 		Handler:     handleAutoReactCmd,
@@ -180,14 +180,14 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "autoread",
 		Alias:       "readauto, autoblue, readreceipt",
-		Description: "Automatically mark incoming messages and status broadcasts as read. Usage: autoread [on|off|toggle|status <on|off>|scope <all|group|dm>]",
+		Description: "Automatically mark incoming messages or statuses as read",
 		Category:    "settings",
 		IsPublic:    false,
 		Handler:     handleAutoReadCmd,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "stpack",
-		Description: "Configure default sticker pack author and pack name",
+		Description: "Set sticker pack name and author name",
 		Category:    "settings",
 		IsPublic:    false,
 		Handler:     handleStpack,
@@ -2022,12 +2022,12 @@ func handleSetCmd(ctx *dispatch.Context) error {
 
 	stk := quoted.GetStickerMessage()
 	if len(stk.GetFileSHA256()) == 0 {
-		return ctx.Reply("Invalid sticker (no FileSHA256 found).")
+		return ctx.Reply("Could not recognize sticker. Please try another sticker.")
 	}
 
 	s, ok := dispatch.GetStore(ctx)
 	if !ok {
-		return ctx.Reply("Settings store unavailable.")
+		return ctx.Reply("Database is temporarily unavailable. Please try again.")
 	}
 
 	shaHex := hex.EncodeToString(stk.GetFileSHA256())
@@ -2051,14 +2051,14 @@ func handleSetCmd(ctx *dispatch.Context) error {
 func handleDelCmd(ctx *dispatch.Context) error {
 	s, ok := dispatch.GetStore(ctx)
 	if !ok {
-		return ctx.Reply("Settings store unavailable.")
+		return ctx.Reply("Database is temporarily unavailable. Please try again.")
 	}
 
 	quoted := ctx.GetQuotedMessage()
 	if quoted != nil && quoted.GetStickerMessage() != nil {
 		stk := quoted.GetStickerMessage()
 		if len(stk.GetFileSHA256()) == 0 {
-			return ctx.Reply("Invalid sticker (no FileSHA256 found).")
+			return ctx.Reply("Could not recognize sticker. Please try another sticker.")
 		}
 		shaHex := hex.EncodeToString(stk.GetFileSHA256())
 

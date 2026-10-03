@@ -17,7 +17,6 @@ import (
 	"whatsrook/cmd/games"
 	"whatsrook/cmd/settings"
 	"whatsrook/cmd/tools"
-	"whatsrook/cmd/updater"
 	"whatsrook/util/httpx"
 	"whatsrook/util/logger"
 	"whatsrook/util/media"
@@ -32,7 +31,7 @@ import (
 func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "alive",
-		Description: "Check bot online status, uptime, system stats, and custom alive template or replied media (image/video/audio)",
+		Description: "Check if the bot is online and working",
 		Category:    "info",
 		IsPublic:    true,
 		Handler:     handleAlive,
@@ -49,7 +48,7 @@ func init() {
 
 	dispatch.Register(&dispatch.Command{
 		Name:        "ping",
-		Description: "Check bot response latency",
+		Description: "Check how fast the bot responds",
 		Category:    "info",
 		IsPublic:    true,
 		Handler:     handlePing,
@@ -58,7 +57,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "repo",
 		Alias:       "sc",
-		Description: "Show the GitHub repository link and project info",
+		Description: "Show project information and source code link",
 		Category:    "info",
 		IsPublic:    true,
 		Handler:     handleRepo,
@@ -67,7 +66,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "uptime",
 		Alias:       "runtime",
-		Description: "Show how long the bot has been running",
+		Description: "Show how long the bot has been active",
 		Category:    "info",
 		IsPublic:    true,
 		Handler:     handleUptime,
@@ -465,24 +464,19 @@ func sendAliveCustomizeGuide(ctx *dispatch.Context) error {
 		Bulletf("Reset to Default   : %salive msg reset", p).
 		Blank().
 		Section("Available Placeholders").
-		Bullet("@user / {user} / [user]     : Sender mention tag").
-		Bullet("@name / {name} / [name]     : Sender pushname").
-		Bullet("@uptime / {uptime} / [uptime] : Active system uptime").
-		Bullet("@bot / {bot} / [bot]       : Bot display name").
-		Bullet("@owner / {owner} / [owner]   : Bot owner user ID").
-		Bullet("@latency / {latency} / [latency]: Response latency").
-		Bullet("@ram / {ram} / [ram]       : Allocated RAM usage").
-		Bullet("@goroutines / {goroutines}  : Active Go routines").
-		Bullet("@version / {version}       : Engine version").
-		Bullet("@prefix / {prefix} / [prefix] : Active command prefix").
-		Bullet("@fact / {fact} / [fact]     : Random fact from API").
-		Bullet("@quote / {quote} / [quote]   : Random quote from API").
-		Bullet("@joke / {joke} / [joke]     : Random joke from API").
-		Bullet("@rizz / {rizz} / [rizz]     : Random rizz from API").
+		Bullet("@user / {user}     : Mentions your name").
+		Bullet("@name / {name}     : Your WhatsApp display name").
+		Bullet("@uptime / {uptime} : How long the bot has been active").
+		Bullet("@bot / {bot}       : The bot's name").
+		Bullet("@latency / {latency}: Bot response speed").
+		Bullet("@prefix / {prefix} : Current command symbol").
+		Bullet("@fact / {fact}     : Random interesting fact").
+		Bullet("@quote / {quote}   : Random inspirational quote").
+		Bullet("@joke / {joke}     : Random joke").
 		Blank().
 		Section("Example Custom Templates").
-		Linef("%salive customize @user I am alive and operational. Uptime: @uptime", p).
-		Linef("%salive customize Hello @name, @bot is online!", p).
+		Linef("%salive customize Hello @name! @bot is online and ready.", p).
+		Linef("%salive customize @user I am working smoothly. Active for: @uptime", p).
 		Reply()
 }
 
@@ -545,7 +539,7 @@ func HandlePendingMenuMediaReply(ctx context.Context, client *whatsmeow.Client, 
 	delete(PendingMenuThumbPrompts, key)
 	MenuThumbPromptsMu.Unlock()
 
-	logger.Info("HandlePendingMenuMediaReply: Downloading custom menu media", "chat", key, "mime", mime, "isVideo", isVideo)
+	logger.Debug("HandlePendingMenuMediaReply: Downloading custom menu media", "chat", key, "mime", mime, "isVideo", isVideo)
 	data, err := client.Download(ctx, downloadable)
 
 	if err != nil || len(data) == 0 {
@@ -626,21 +620,19 @@ func handleMenu(ctx *dispatch.Context) error {
 	}
 
 	uptime := system.FormatDuration(time.Since(StartTime))
-	var ms runtime.MemStats
-	runtime.ReadMemStats(&ms)
-	usedRAM := ms.Alloc
-	platform := runtime.GOOS
 
 	user := ctx.Evt.Info.PushName
 	if user == "" {
 		user = ctx.Sender.User
 	}
 
-	botMode := "public"
+	botMode := "Public"
 	s, ok := dispatch.GetStore(ctx)
 	if ok {
 		if rawMode, err := s.GetSetting(ctx.Ctx, "mode"); err == nil && rawMode != "" {
-			botMode = rawMode
+			if strings.EqualFold(rawMode, "private") {
+				botMode = "Private"
+			}
 		}
 	}
 
@@ -661,12 +653,10 @@ func handleMenu(ctx *dispatch.Context) error {
 	introBuilder := ctx.Text().
 		Header(ctx.GetBotName()).
 		Field("User", user).
-		Field("OS", platform).
-		Field("Mem", whatsrook.FormatBytes(usedRAM)).
-		Field("Plugins", strconv.Itoa(displayedCount)).
+		Field("Prefix", ctx.GetPrefix()).
+		Field("Commands", strconv.Itoa(displayedCount)).
 		Field("Mode", botMode).
-		Field("Uptime", uptime).
-		Field("Version", updater.GetAppVersion())
+		Field("Uptime", uptime)
 
 	tb := ctx.Text()
 	tb.Line("```\n" + introBuilder.Trimmed() + "\n```")
@@ -770,11 +760,11 @@ func handlePing(ctx *dispatch.Context) error {
 	elapsed := replyDuration
 	var respText string
 	if ms := elapsed.Milliseconds(); ms > 0 {
-		respText = dispatch.Sprintf("%d ms", ms)
+		respText = dispatch.Sprintf("Pong! %d ms", ms)
 	} else if us := elapsed.Microseconds(); us > 0 {
-		respText = dispatch.Sprintf("%d μs", us)
+		respText = dispatch.Sprintf("Pong! %d μs", us)
 	} else {
-		respText = dispatch.Sprintf("%d μs", elapsed.Nanoseconds())
+		respText = dispatch.Sprintf("Pong! %d ns", elapsed.Nanoseconds())
 	}
 
 	startEdit := time.Now()
@@ -810,5 +800,5 @@ func handleRepo(ctx *dispatch.Context) error {
 
 func handleUptime(ctx *dispatch.Context) error {
 	out := system.FormatDuration(time.Since(StartTime))
-	return ctx.Reply(out)
+	return ctx.Replyf("Bot has been active for: %s", out)
 }

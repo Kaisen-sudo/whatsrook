@@ -11,7 +11,7 @@ import (
 func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "install",
-		Description: "Install an external plugin from official registry, custom URL, or local binary (sudoers only)",
+		Description: "Install an extra plugin (Owner only)",
 		Category:    "extensions",
 		IsPublic:    false,
 		Handler:     handlePluginInstall,
@@ -19,7 +19,7 @@ func init() {
 
 	dispatch.Register(&dispatch.Command{
 		Name:        "uninstall",
-		Description: "Uninstall an external plugin (sudoers only)",
+		Description: "Remove an installed plugin (Owner only)",
 		Category:    "extensions",
 		IsPublic:    false,
 		Handler:     handlePluginUninstall,
@@ -28,7 +28,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "plist",
 		Alias:       "pluginlist",
-		Description: "List all installed external plugins",
+		Description: "Show list of installed plugins",
 		Category:    "extensions",
 		IsPublic:    true,
 		Handler:     handlePluginList,

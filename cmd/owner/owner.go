@@ -33,7 +33,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "logout",
 		Alias:       "unpair",
-		Description: "Log out WhatsApp session, revoke pairing, and purge credentials (sudoers only)",
+		Description: "Log out and disconnect the bot (Owner only)",
 		Category:    "owner",
 		IsPublic:    false,
 		Handler:     handleLogoutCommand,
@@ -41,7 +41,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "presence",
 		Alias:       "online,setonline,active",
-		Description: "Set or refresh client presence to online / browser active (sudoers only)",
+		Description: "Set bot status to online (Owner only)",
 		Category:    "owner",
 		IsPublic:    false,
 		Handler:     handlePresence,
@@ -49,7 +49,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "bio",
 		Alias:       "setbio",
-		Description: "Update the bot's WhatsApp status bio message",
+		Description: "Update the bot's WhatsApp bio",
 		Category:    "owner",
 		IsPublic:    false,
 		Handler:     handleBio,
@@ -57,7 +57,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "blocklist",
 		Alias:       "blocks",
-		Description: "Display list of all currently blocked contacts",
+		Description: "Show list of blocked contacts",
 		Category:    "chats",
 		IsPublic:    false,
 		Handler:     handleBlocklist,
@@ -65,7 +65,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "pp",
 		Alias:       "setpp",
-		Description: "Update the bot's WhatsApp profile picture (replying to an image or image upload)",
+		Description: "Change the bot's profile picture (reply to an image)",
 		Category:    "owner",
 		IsPublic:    false,
 		Handler:     handleSetBotPP,
@@ -73,7 +73,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "sh",
 		Alias:       "exec,ps,cmd,shell,bash",
-		Description: "Execute a shell command with real-time log streaming and stdin input (sudoers only).",
+		Description: "Run a terminal command (Owner only)",
 		Category:    "owner",
 		IsPublic:    false,
 		Handler:     handleSh,
@@ -81,7 +81,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "stop",
 		Alias:       "kill",
-		Description: "Stop/terminate any running interactive shell session in this chat",
+		Description: "Stop any running terminal command in this chat",
 		Category:    "owner",
 		IsPublic:    false,
 		Handler:     handleStopShell,
@@ -89,7 +89,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "status",
 		Alias:       "poststatus",
-		Description: "Post a status update (text or media) to WhatsApp status broadcast",
+		Description: "Post a new WhatsApp Status story",
 		Category:    "owner",
 		IsPublic:    false,
 		Handler:     handleStatus,
@@ -97,42 +97,42 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "setsudo",
 		Alias:       "sudo,addsudo",
-		Description: "Add a user to the sudo list (replied user or numbers)",
+		Description: "Add a bot admin (tag or reply to a user)",
 		Category:    "owner",
 		IsPublic:    false,
 		Handler:     handleSetSudo,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "delsudo",
-		Description: "Remove a user from the sudo list (replied user or numbers)",
+		Description: "Remove a bot admin (tag or reply to a user)",
 		Category:    "owner",
 		IsPublic:    false,
 		Handler:     handleDelSudo,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "listsudo",
-		Description: "List all sudo users",
+		Description: "Show list of all bot admins",
 		Category:    "owner",
 		IsPublic:    false,
 		Handler:     handleListSudo,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "ban",
-		Description: "Block a user from using the bot commands (replied user or numbers)",
+		Description: "Block a user from using bot commands",
 		Category:    "owner",
 		IsPublic:    false,
 		Handler:     handleBan,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "unban",
-		Description: "Unblock a user (replied user or numbers)",
+		Description: "Unblock a user so they can use bot commands",
 		Category:    "owner",
 		IsPublic:    false,
 		Handler:     handleUnban,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "mode",
-		Description: "Toggle bot mode (public/private)",
+		Description: "Switch bot between public and private mode",
 		Category:    "owner",
 		IsPublic:    false,
 		Handler:     handleMode,
@@ -200,7 +200,7 @@ func handleSetBotPP(ctx *dispatch.Context) error {
 		ownJID = ctx.Client.Store.ID.ToNonAD()
 	}
 
-	logger.Info("handleSetBotPP: Setting bot profile picture", "rawBytes", len(rawBytes), "jpegBytes", len(jpegData), "targetJID", ownJID.String())
+	logger.Debug("handleSetBotPP: Setting bot profile picture", "rawBytes", len(rawBytes), "jpegBytes", len(jpegData), "targetJID", ownJID.String())
 	picID, errSet := ctx.Client.SetGroupPhoto(ctx.Ctx, ownJID, jpegData)
 	if errSet != nil {
 		logger.Error("handleSetBotPP failed", "err", errSet)
@@ -1357,14 +1357,14 @@ func handlePresence(ctx *dispatch.Context) error {
 		if err := ctx.Client.SendPresence(ctx.Ctx, types.PresenceAvailable); err != nil {
 			return ctx.Replyf("Failed to set presence online: %v", err)
 		}
-		return ctx.Reply("Client presence set to online (browser active).")
+		return ctx.Reply("Bot status is now set to online.")
 	default:
 		return dispatch.ErrUsage(p + "presence [online|offline]")
 	}
 }
 
 func handleLogoutCommand(ctx *dispatch.Context) error {
-	_ = ctx.Reply("Logging out and unpairing companion device...")
+	_ = ctx.Reply("Logging out of WhatsApp...")
 
 	go func() {
 		time.Sleep(1 * time.Second)

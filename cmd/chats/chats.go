@@ -19,42 +19,42 @@ import (
 func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "archive",
-		Description: "Archive the current chat",
+		Description: "Move this chat to your archive",
 		Category:    "chats",
 		IsPublic:    false,
 		Handler:     handleArchive,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "unarchive",
-		Description: "Unarchive the current chat",
+		Description: "Move this chat out of your archive",
 		Category:    "chats",
 		IsPublic:    false,
 		Handler:     handleUnarchive,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "pin",
-		Description: "Pin the current chat (or pin the replied message)",
+		Description: "Pin this chat or pin a replied message",
 		Category:    "chats",
 		IsPublic:    true,
 		Handler:     handlePin,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "unpin",
-		Description: "Unpin the current chat (or unpin the replied message)",
+		Description: "Unpin this chat or unpin a replied message",
 		Category:    "chats",
 		IsPublic:    true,
 		Handler:     handleUnpin,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "block",
-		Description: "Block the target contact or current private chat JID",
+		Description: "Block this contact from messaging you",
 		Category:    "chats",
 		IsPublic:    false,
 		Handler:     handleBlock,
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "unblock",
-		Description: "Unblock a user (must provide phone number, tag, or reply)",
+		Description: "Unblock a previously blocked contact",
 		Category:    "chats",
 		IsPublic:    false,
 		Handler:     handleUnblock,
@@ -62,7 +62,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "clear",
 		Alias:       "clearchat",
-		Description: "Clear all messages in the current chat",
+		Description: "Delete all messages in this chat",
 		Category:    "chats",
 		IsPublic:    false,
 		Handler:     handleClear,
@@ -70,7 +70,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "dlt",
 		Alias:       "del,delete",
-		Description: "Delete/revoke a message (must reply to the target message)",
+		Description: "Delete a message (reply to the message to delete)",
 		Category:    "chats",
 		IsPublic:    true,
 		Handler:     handleDelete,
@@ -78,7 +78,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "report",
 		Alias:       "reportchat",
-		Description: "Submit a spam report for the target user or replied message to WhatsApp",
+		Description: "Report a user or message for spam",
 		Category:    "chats",
 		IsPublic:    false,
 		Handler:     handleReport,
@@ -86,7 +86,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "vv",
 		Alias:       "viewonce",
-		Description: "Unwrap a ViewOnce message and resend it as a normal message (replying to a ViewOnce message)",
+		Description: "Open and resend a View Once photo or video (reply to it)",
 		Category:    "chats",
 		IsPublic:    true,
 		Handler:     handleVV,

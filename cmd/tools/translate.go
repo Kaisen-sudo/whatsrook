@@ -20,7 +20,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "translate",
 		Alias:       "tr,trans",
-		Description: "Translate text or quoted messages to your default/country official language or a specified language",
+		Description: "Translate text or a replied message into another language",
 		Category:    "tools",
 		IsPublic:    true,
 		Handler:     handleTranslate,
@@ -47,7 +47,7 @@ func handleTranslate(ctx *dispatch.Context) error {
 			langInput := fields[1]
 			code, name, ok := NormalizeLanguageCode(langInput)
 			if !ok {
-				return ctx.Replyf("Unknown language %q. Use ISO-639 codes (e.g. `en`, `es`, `fr`, `de`, `ja`, `ar`, etc.) or full names.", langInput)
+				return ctx.Replyf("Unknown language %q. Please use language names (like English, Spanish, French) or short codes (like en, es, fr, de, ar).", langInput)
 			}
 			if s, okStore := dispatch.GetStore(ctx); okStore {
 				_ = s.PutSetting(ctx.Ctx, TranslateSettingKey, code)
@@ -105,7 +105,7 @@ func handleTranslate(ctx *dispatch.Context) error {
 			"• `%[1]stranslate \"<quoted text>\"`\n"+
 			"• Reply to any message with `%[1]stranslate` or `%[1]stranslate <lang>`\n"+
 			"• `%[1]stranslate set <lang>` (configure default language)\n"+
-			"• `%[1]stranslate reset` (revert to owner country auto-detection)",
+			"• `%[1]stranslate reset` (reset back to default language)",
 			p)
 	}
 

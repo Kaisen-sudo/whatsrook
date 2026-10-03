@@ -128,7 +128,7 @@ func init() {
 	})
 	dispatch.Register(&dispatch.Command{
 		Name:        "kickall",
-		Description: "Remove all participants from the group (Admins & Bot Owners only)",
+		Description: "Remove all members from the group (Admin only)",
 		Category:    "group",
 		GroupOnly:   true,
 		IsPublic:    false,
@@ -137,7 +137,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "leave",
 		Alias:       "left",
-		Description: "Ask the bot to leave this group with a confirmation prompt",
+		Description: "Make the bot leave this group",
 		Category:    "group",
 		GroupOnly:   true,
 		IsPublic:    true,
@@ -154,7 +154,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "antimsg",
 		Alias:       "antimessage",
-		Description: "Automatically delete messages from targeted participants",
+		Description: "Automatically delete messages from specific members",
 		Category:    "group",
 		GroupOnly:   true,
 		IsPublic:    false,
@@ -199,7 +199,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "events",
 		Alias:       "groupevents",
-		Description: "Get notified when group settings, subject, or participants change",
+		Description: "Get notified when group info or members change",
 		Category:    "group",
 		GroupOnly:   true,
 		IsPublic:    false,
@@ -208,7 +208,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "gpp",
 		Alias:       "setgpp",
-		Description: "Update the group profile picture using an image",
+		Description: "Change the group's profile picture (reply to an image)",
 		Category:    "group",
 		GroupOnly:   true,
 		IsPublic:    true,

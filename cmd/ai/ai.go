@@ -45,7 +45,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "ai",
 		Alias:       "ask",
-		Description: "Ask Meta AI a question.",
+		Description: "Ask AI any question",
 		Category:    "ai",
 		IsPublic:    true,
 		Handler:     handleAI,
@@ -53,7 +53,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "autoai",
 		Alias:       "aai",
-		Description: "Toggle automatic AI responses when tagged, replied to, or when 'Rook' or 'WhatsRook' is mentioned in this chat (on/off)",
+		Description: "Turn automatic AI chat responses on or off",
 		Category:    "ai",
 		IsPublic:    true,
 		Handler:     handleAutoAI,
@@ -61,7 +61,7 @@ func init() {
 	dispatch.Register(&dispatch.Command{
 		Name:        "csai",
 		Alias:       "customai",
-		Description: "Configure global AI personality traits and relationship behavior (Sudoers only)",
+		Description: "Customize AI personality and tone (Owner only)",
 		Category:    "ai",
 		IsPublic:    false,
 		Handler:     handleCSAI,
