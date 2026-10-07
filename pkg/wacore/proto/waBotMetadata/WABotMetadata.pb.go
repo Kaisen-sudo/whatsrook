@@ -365,10 +365,11 @@ func (BotSessionSource) EnumDescriptor() ([]byte, []int) {
 type AIThreadInfo_AIThreadClientInfo_AIThreadType int32
 
 const (
-	AIThreadInfo_AIThreadClientInfo_UNKNOWN   AIThreadInfo_AIThreadClientInfo_AIThreadType = 0
-	AIThreadInfo_AIThreadClientInfo_DEFAULT   AIThreadInfo_AIThreadClientInfo_AIThreadType = 1
-	AIThreadInfo_AIThreadClientInfo_INCOGNITO AIThreadInfo_AIThreadClientInfo_AIThreadType = 2
-	AIThreadInfo_AIThreadClientInfo_SIDE_CHAT AIThreadInfo_AIThreadClientInfo_AIThreadType = 3
+	AIThreadInfo_AIThreadClientInfo_UNKNOWN             AIThreadInfo_AIThreadClientInfo_AIThreadType = 0
+	AIThreadInfo_AIThreadClientInfo_DEFAULT             AIThreadInfo_AIThreadClientInfo_AIThreadType = 1
+	AIThreadInfo_AIThreadClientInfo_INCOGNITO           AIThreadInfo_AIThreadClientInfo_AIThreadType = 2
+	AIThreadInfo_AIThreadClientInfo_SIDE_CHAT           AIThreadInfo_AIThreadClientInfo_AIThreadType = 3
+	AIThreadInfo_AIThreadClientInfo_PRIVATE_SEARCH_CHAT AIThreadInfo_AIThreadClientInfo_AIThreadType = 4
 )
 
 // Enum value maps for AIThreadInfo_AIThreadClientInfo_AIThreadType.
@@ -378,12 +379,14 @@ var (
 		1: "DEFAULT",
 		2: "INCOGNITO",
 		3: "SIDE_CHAT",
+		4: "PRIVATE_SEARCH_CHAT",
 	}
 	AIThreadInfo_AIThreadClientInfo_AIThreadType_value = map[string]int32{
-		"UNKNOWN":   0,
-		"DEFAULT":   1,
-		"INCOGNITO": 2,
-		"SIDE_CHAT": 3,
+		"UNKNOWN":             0,
+		"DEFAULT":             1,
+		"INCOGNITO":           2,
+		"SIDE_CHAT":           3,
+		"PRIVATE_SEARCH_CHAT": 4,
 	}
 )
 
@@ -556,6 +559,14 @@ const (
 	BotCapabilityMetadata_AI_STOP_GENERATION_ENABLED                 BotCapabilityMetadata_BotCapabilityType = 70
 	BotCapabilityMetadata_AI_RICH_RESPONSE_3P_LINKING_CARD_ENABLED   BotCapabilityMetadata_BotCapabilityType = 71
 	BotCapabilityMetadata_HATCH_NOTIFICATION_METADATA_EVENT_ENABLED  BotCapabilityMetadata_BotCapabilityType = 72
+	BotCapabilityMetadata_AI_SUGGESTED_REPLIES_ENABLED               BotCapabilityMetadata_BotCapabilityType = 73
+	BotCapabilityMetadata_RICH_RESPONSE_IN_APP_SURVEY_BLOKS          BotCapabilityMetadata_BotCapabilityType = 74
+	BotCapabilityMetadata_RICH_RESPONSE_IMAGE_SOURCE_ATTRIBUTION     BotCapabilityMetadata_BotCapabilityType = 75
+	BotCapabilityMetadata_HATCH_CONNECTOR_ACTION_CARD_ENABLED        BotCapabilityMetadata_BotCapabilityType = 76
+	BotCapabilityMetadata_HATCH_SECURE_CREDENTIAL_CARD_ENABLED       BotCapabilityMetadata_BotCapabilityType = 77
+	BotCapabilityMetadata_HATCH_BROWSER_TASK_CARD_ENABLED            BotCapabilityMetadata_BotCapabilityType = 78
+	BotCapabilityMetadata_HATCH_ARTIFACT_CARD_ENABLED                BotCapabilityMetadata_BotCapabilityType = 79
+	BotCapabilityMetadata_AI_STUDY_CENTER_ENABLED                    BotCapabilityMetadata_BotCapabilityType = 80
 )
 
 // Enum value maps for BotCapabilityMetadata_BotCapabilityType.
@@ -634,6 +645,14 @@ var (
 		70: "AI_STOP_GENERATION_ENABLED",
 		71: "AI_RICH_RESPONSE_3P_LINKING_CARD_ENABLED",
 		72: "HATCH_NOTIFICATION_METADATA_EVENT_ENABLED",
+		73: "AI_SUGGESTED_REPLIES_ENABLED",
+		74: "RICH_RESPONSE_IN_APP_SURVEY_BLOKS",
+		75: "RICH_RESPONSE_IMAGE_SOURCE_ATTRIBUTION",
+		76: "HATCH_CONNECTOR_ACTION_CARD_ENABLED",
+		77: "HATCH_SECURE_CREDENTIAL_CARD_ENABLED",
+		78: "HATCH_BROWSER_TASK_CARD_ENABLED",
+		79: "HATCH_ARTIFACT_CARD_ENABLED",
+		80: "AI_STUDY_CENTER_ENABLED",
 	}
 	BotCapabilityMetadata_BotCapabilityType_value = map[string]int32{
 		"UNKNOWN":                                    0,
@@ -709,6 +728,14 @@ var (
 		"AI_STOP_GENERATION_ENABLED":                 70,
 		"AI_RICH_RESPONSE_3P_LINKING_CARD_ENABLED":   71,
 		"HATCH_NOTIFICATION_METADATA_EVENT_ENABLED":  72,
+		"AI_SUGGESTED_REPLIES_ENABLED":               73,
+		"RICH_RESPONSE_IN_APP_SURVEY_BLOKS":          74,
+		"RICH_RESPONSE_IMAGE_SOURCE_ATTRIBUTION":     75,
+		"HATCH_CONNECTOR_ACTION_CARD_ENABLED":        76,
+		"HATCH_SECURE_CREDENTIAL_CARD_ENABLED":       77,
+		"HATCH_BROWSER_TASK_CARD_ENABLED":            78,
+		"HATCH_ARTIFACT_CARD_ENABLED":                79,
+		"AI_STUDY_CENTER_ENABLED":                    80,
 	}
 )
 
@@ -5070,22 +5097,23 @@ var File_waBotMetadata_WABotMetadata_proto protoreflect.FileDescriptor
 
 const file_waBotMetadata_WABotMetadata_proto_rawDesc = "" +
 	"\n" +
-	"!waBotMetadata/WABotMetadata.proto\x12\rWABotMetadata\x1a'waAICommon/WAWebProtobufsAICommon.proto\x1a\x17waCommon/WACommon.proto\"\xb0\x03\n" +
+	"!waBotMetadata/WABotMetadata.proto\x12\rWABotMetadata\x1a'waAICommon/WAWebProtobufsAICommon.proto\x1a\x17waCommon/WACommon.proto\"\xc9\x03\n" +
 	"\fAIThreadInfo\x12N\n" +
 	"\n" +
 	"serverInfo\x18\x01 \x01(\v2..WABotMetadata.AIThreadInfo.AIThreadServerInfoR\n" +
 	"serverInfo\x12N\n" +
 	"\n" +
 	"clientInfo\x18\x02 \x01(\v2..WABotMetadata.AIThreadInfo.AIThreadClientInfoR\n" +
-	"clientInfo\x1a\xd3\x01\n" +
+	"clientInfo\x1a\xec\x01\n" +
 	"\x12AIThreadClientInfo\x12O\n" +
 	"\x04type\x18\x01 \x01(\x0e2;.WABotMetadata.AIThreadInfo.AIThreadClientInfo.AIThreadTypeR\x04type\x12$\n" +
-	"\rsourceChatJid\x18\x02 \x01(\tR\rsourceChatJid\"F\n" +
+	"\rsourceChatJid\x18\x02 \x01(\tR\rsourceChatJid\"_\n" +
 	"\fAIThreadType\x12\v\n" +
 	"\aUNKNOWN\x10\x00\x12\v\n" +
 	"\aDEFAULT\x10\x01\x12\r\n" +
 	"\tINCOGNITO\x10\x02\x12\r\n" +
-	"\tSIDE_CHAT\x10\x03\x1a*\n" +
+	"\tSIDE_CHAT\x10\x03\x12\x17\n" +
+	"\x13PRIVATE_SEARCH_CHAT\x10\x04\x1a*\n" +
 	"\x12AIThreadServerInfo\x12\x14\n" +
 	"\x05title\x18\x01 \x01(\tR\x05title\"\xba\x02\n" +
 	"\x18BotAgeCollectionMetadata\x124\n" +
@@ -5102,9 +5130,9 @@ const file_waBotMetadata_WABotMetadata_proto_rawDesc = "" +
 	"\rbehaviorGraph\x18\x02 \x01(\tR\rbehaviorGraph\x12\x16\n" +
 	"\x06action\x18\x03 \x01(\rR\x06action\x12\x1c\n" +
 	"\tintensity\x18\x04 \x01(\rR\tintensity\x12\x1c\n" +
-	"\twordCount\x18\x05 \x01(\rR\twordCount\"\xbf\x14\n" +
+	"\twordCount\x18\x05 \x01(\rR\twordCount\"\xea\x16\n" +
 	"\x15BotCapabilityMetadata\x12Z\n" +
-	"\fcapabilities\x18\x01 \x03(\x0e26.WABotMetadata.BotCapabilityMetadata.BotCapabilityTypeR\fcapabilities\"\xc9\x13\n" +
+	"\fcapabilities\x18\x01 \x03(\x0e26.WABotMetadata.BotCapabilityMetadata.BotCapabilityTypeR\fcapabilities\"\xf4\x15\n" +
 	"\x11BotCapabilityType\x12\v\n" +
 	"\aUNKNOWN\x10\x00\x12\x16\n" +
 	"\x12PROGRESS_INDICATOR\x10\x01\x12\x19\n" +
@@ -5180,7 +5208,15 @@ const file_waBotMetadata_WABotMetadata_proto_rawDesc = "" +
 	"\"AI_RICH_RESPONSE_REMINDERS_ENABLED\x10E\x12\x1e\n" +
 	"\x1aAI_STOP_GENERATION_ENABLED\x10F\x12,\n" +
 	"(AI_RICH_RESPONSE_3P_LINKING_CARD_ENABLED\x10G\x12-\n" +
-	")HATCH_NOTIFICATION_METADATA_EVENT_ENABLED\x10H\"\xcf\x01\n" +
+	")HATCH_NOTIFICATION_METADATA_EVENT_ENABLED\x10H\x12 \n" +
+	"\x1cAI_SUGGESTED_REPLIES_ENABLED\x10I\x12%\n" +
+	"!RICH_RESPONSE_IN_APP_SURVEY_BLOKS\x10J\x12*\n" +
+	"&RICH_RESPONSE_IMAGE_SOURCE_ATTRIBUTION\x10K\x12'\n" +
+	"#HATCH_CONNECTOR_ACTION_CARD_ENABLED\x10L\x12(\n" +
+	"$HATCH_SECURE_CREDENTIAL_CARD_ENABLED\x10M\x12#\n" +
+	"\x1fHATCH_BROWSER_TASK_CARD_ENABLED\x10N\x12\x1f\n" +
+	"\x1bHATCH_ARTIFACT_CARD_ENABLED\x10O\x12\x1b\n" +
+	"\x17AI_STUDY_CENTER_ENABLED\x10P\"\xcf\x01\n" +
 	"\x12BotImagineMetadata\x12O\n" +
 	"\vimagineType\x18\x01 \x01(\x0e2-.WABotMetadata.BotImagineMetadata.ImagineTypeR\vimagineType\x12 \n" +
 	"\vshortPrompt\x18\x02 \x01(\tR\vshortPrompt\"F\n" +
