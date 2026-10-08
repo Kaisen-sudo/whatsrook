@@ -4,6 +4,7 @@ option go_package = "go.mau.fi/whatsmeow/proto/waWeb";
 
 import "waCommon/WACommon.proto";
 import "waE2E/WAWebProtobufsE2E.proto";
+import "waE2EGuest/WAWebProtobufsE2EGuest.proto";
 
 message Citation {
 	required string title = 1;
@@ -199,6 +200,7 @@ message PollAdditionalMetadata {
 
 	optional bool pollInvalidated = 1;
 	repeated PollNameHashHistoryEntry pollNameHashHistory = 2;
+	repeated WAWebProtobufsE2EGuest.Message.PollCreationMessage.Option originalOptions = 3;
 }
 
 message PollUpdate {
@@ -559,6 +561,22 @@ message WebMessageInfo {
 		CAMEO_TRANSITIONED = 256;
 		BIZ_CALLBACK_DISABLED = 244;
 		SENDER_SIDE_CONTACT_INFO = 255;
+		GROUP_DEFAULT_SUB_GROUP_DEMOTE = 251;
+		BIZ_BUSINESS_BROADCAST_ENTRY_POINT = 252;
+		BOT_INLINE_TOS_CHAT = 253;
+		CAMEO_REGISTERED_WITH_NEW_CHAT = 257;
+		PRIVACY_SYSTEM_MESSAGE = 258;
+		BIZ_AI_LEARNING_ENABLED_DISCLOSURE = 259;
+		BIZ_AI_LEARNING_DISABLED_DISCLOSURE = 260;
+		BIZ_AI_REPLIES_MUTED_HISTORICAL_CHAT = 261;
+		INVITE_FROM_IG = 262;
+		GROUP_ADMIN_FIRST_JOIN_VIA_LINK = 263;
+		GROUP_ADMIN_FLOOD_JOIN_VIA_LINK = 264;
+		BIZ_AI_REPLIES_MUTED_IRRELEVANT_HISTORICAL_CHAT = 265;
+		PENDING_INVITE_CREATED = 266;
+		CAMEO_CHAT_EXPIRED = 267;
+		GROUP_PUSHNAME_SHARED = 270;
+		BIZ_POST_SEND_OPT_OUT = 271;
 	}
 
 	enum Status {
@@ -642,6 +660,7 @@ message WebMessageInfo {
 	optional ScheduledMessageMetadata scheduledMessageMetadata = 81;
 	optional string decisionID = 82;
 	repeated string decisionSources = 83;
+	optional WAWebProtobufsE2E.EventInviteAdditionalMetadata eventInviteAdditionalMetadata = 84;
 }
 
 message WebNotificationsInfo {

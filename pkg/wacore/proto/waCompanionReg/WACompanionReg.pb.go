@@ -52,6 +52,8 @@ const (
 	DeviceProps_PLATFORMTYPE_WAIL    DeviceProps_PlatformType = 25
 	DeviceProps_WASS                 DeviceProps_PlatformType = 26
 	DeviceProps_BUSINESS_BACK_OFFICE DeviceProps_PlatformType = 27
+	DeviceProps_WAIL_WAI             DeviceProps_PlatformType = 28
+	DeviceProps_WAIL_ALEXA           DeviceProps_PlatformType = 29
 )
 
 // Enum value maps for DeviceProps_PlatformType.
@@ -85,6 +87,8 @@ var (
 		25: "PLATFORMTYPE_WAIL",
 		26: "WASS",
 		27: "BUSINESS_BACK_OFFICE",
+		28: "WAIL_WAI",
+		29: "WAIL_ALEXA",
 	}
 	DeviceProps_PlatformType_value = map[string]int32{
 		"UNKNOWN":              0,
@@ -115,6 +119,8 @@ var (
 		"PLATFORMTYPE_WAIL":    25,
 		"WASS":                 26,
 		"BUSINESS_BACK_OFFICE": 27,
+		"WAIL_WAI":             28,
+		"WAIL_ALEXA":           29,
 	}
 )
 
@@ -662,6 +668,8 @@ type DeviceProps_HistorySyncConfig struct {
 	SupportedBotChannelFbids                 []string               `protobuf:"bytes,23,rep,name=supportedBotChannelFbids" json:"supportedBotChannelFbids,omitempty"`
 	SupportInlineContacts                    *bool                  `protobuf:"varint,24,opt,name=supportInlineContacts" json:"supportInlineContacts,omitempty"`
 	SupportNewsletter                        *bool                  `protobuf:"varint,25,opt,name=supportNewsletter" json:"supportNewsletter,omitempty"`
+	SupportUniversalReachChat                *bool                  `protobuf:"varint,26,opt,name=supportUniversalReachChat" json:"supportUniversalReachChat,omitempty"`
+	SupportOmittedConversationIndex          *bool                  `protobuf:"varint,27,opt,name=supportOmittedConversationIndex" json:"supportOmittedConversationIndex,omitempty"`
 	unknownFields                            protoimpl.UnknownFields
 	sizeCache                                protoimpl.SizeCache
 }
@@ -871,6 +879,20 @@ func (x *DeviceProps_HistorySyncConfig) GetSupportNewsletter() bool {
 	return false
 }
 
+func (x *DeviceProps_HistorySyncConfig) GetSupportUniversalReachChat() bool {
+	if x != nil && x.SupportUniversalReachChat != nil {
+		return *x.SupportUniversalReachChat
+	}
+	return false
+}
+
+func (x *DeviceProps_HistorySyncConfig) GetSupportOmittedConversationIndex() bool {
+	if x != nil && x.SupportOmittedConversationIndex != nil {
+		return *x.SupportOmittedConversationIndex
+	}
+	return false
+}
+
 type DeviceProps_AppVersion struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Primary       *uint32                `protobuf:"varint,1,opt,name=primary" json:"primary,omitempty"`
@@ -966,13 +988,13 @@ const file_waCompanionReg_WACompanionReg_proto_rawDesc = "" +
 	"\n" +
 	"deviceType\x18\x02 \x01(\x0e2(.WACompanionReg.DeviceProps.PlatformTypeR\n" +
 	"deviceType\x12\x10\n" +
-	"\x03ref\x18\x03 \x01(\tR\x03ref\"\x8c\x12\n" +
+	"\x03ref\x18\x03 \x01(\tR\x03ref\"\xb2\x13\n" +
 	"\vDeviceProps\x12\x0e\n" +
 	"\x02os\x18\x01 \x01(\tR\x02os\x12@\n" +
 	"\aversion\x18\x02 \x01(\v2&.WACompanionReg.DeviceProps.AppVersionR\aversion\x12L\n" +
 	"\fplatformType\x18\x03 \x01(\x0e2(.WACompanionReg.DeviceProps.PlatformTypeR\fplatformType\x12(\n" +
 	"\x0frequireFullSync\x18\x04 \x01(\bR\x0frequireFullSync\x12[\n" +
-	"\x11historySyncConfig\x18\x05 \x01(\v2-.WACompanionReg.DeviceProps.HistorySyncConfigR\x11historySyncConfig\x1a\x9b\v\n" +
+	"\x11historySyncConfig\x18\x05 \x01(\v2-.WACompanionReg.DeviceProps.HistorySyncConfigR\x11historySyncConfig\x1a\xa3\f\n" +
 	"\x11HistorySyncConfig\x12,\n" +
 	"\x11fullSyncDaysLimit\x18\x01 \x01(\rR\x11fullSyncDaysLimit\x120\n" +
 	"\x13fullSyncSizeMbLimit\x18\x02 \x01(\rR\x13fullSyncSizeMbLimit\x12&\n" +
@@ -999,7 +1021,9 @@ const file_waCompanionReg_WACompanionReg_proto_rawDesc = "" +
 	"\x13supportHatchHistory\x18\x16 \x01(\bR\x13supportHatchHistory\x12:\n" +
 	"\x18supportedBotChannelFbids\x18\x17 \x03(\tR\x18supportedBotChannelFbids\x124\n" +
 	"\x15supportInlineContacts\x18\x18 \x01(\bR\x15supportInlineContacts\x12,\n" +
-	"\x11supportNewsletter\x18\x19 \x01(\bR\x11supportNewsletter\x1a\x9a\x01\n" +
+	"\x11supportNewsletter\x18\x19 \x01(\bR\x11supportNewsletter\x12<\n" +
+	"\x19supportUniversalReachChat\x18\x1a \x01(\bR\x19supportUniversalReachChat\x12H\n" +
+	"\x1fsupportOmittedConversationIndex\x18\x1b \x01(\bR\x1fsupportOmittedConversationIndex\x1a\x9a\x01\n" +
 	"\n" +
 	"AppVersion\x12\x18\n" +
 	"\aprimary\x18\x01 \x01(\rR\aprimary\x12\x1c\n" +
@@ -1008,7 +1032,7 @@ const file_waCompanionReg_WACompanionReg_proto_rawDesc = "" +
 	"\n" +
 	"quaternary\x18\x04 \x01(\rR\n" +
 	"quaternary\x12\x18\n" +
-	"\aquinary\x18\x05 \x01(\rR\aquinary\"\x9a\x03\n" +
+	"\aquinary\x18\x05 \x01(\rR\aquinary\"\xb8\x03\n" +
 	"\fPlatformType\x12\v\n" +
 	"\aUNKNOWN\x10\x00\x12\n" +
 	"\n" +
@@ -1041,7 +1065,10 @@ const file_waCompanionReg_WACompanionReg_proto_rawDesc = "" +
 	"\fSMARTGLASSES\x10\x18\x12\x15\n" +
 	"\x11PLATFORMTYPE_WAIL\x10\x19\x12\b\n" +
 	"\x04WASS\x10\x1a\x12\x18\n" +
-	"\x14BUSINESS_BACK_OFFICE\x10\x1b\"U\n" +
+	"\x14BUSINESS_BACK_OFFICE\x10\x1b\x12\f\n" +
+	"\bWAIL_WAI\x10\x1c\x12\x0e\n" +
+	"\n" +
+	"WAIL_ALEXA\x10\x1d\"U\n" +
 	"\x17EncryptedPairingRequest\x12*\n" +
 	"\x10encryptedPayload\x18\x01 \x01(\fR\x10encryptedPayload\x12\x0e\n" +
 	"\x02IV\x18\x02 \x01(\fR\x02IV\"\x92\x01\n" +

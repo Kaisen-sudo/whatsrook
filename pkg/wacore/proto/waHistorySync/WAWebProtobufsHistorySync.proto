@@ -120,6 +120,7 @@ message Conversation {
 	optional string authAgentObaPhoneNumber = 62;
 	optional IdentityVerificationState identityVerification = 63;
 	optional WAWebProtobufsE2E.ACP2Setting acp2Setting = 64;
+	optional bool acp2HistoryWithheld = 65;
 }
 
 message GlobalSettings {
@@ -193,6 +194,9 @@ message HistorySync {
 	optional bytes nctSalt = 19;
 	repeated InlineContact inlineContacts = 20;
 	optional bool inlineContactsProvided = 21;
+	repeated StickerMetadata favoriteStickers = 22;
+	repeated WAWebProtobufsE2E.RecoverableHistoryConversation omittedConversations = 23;
+	optional bool omittedConversationsProvided = 24;
 }
 
 message HistorySyncMsg {
